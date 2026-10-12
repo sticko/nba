@@ -1035,7 +1035,7 @@ details.method[open] summary:after{content:'\2212'}
         <div id="nbList"></div>
         <div class="nbhow"><div class="nbhow-t"><span class="nbhow-ic" aria-hidden="true">?</span>How this works</div>
           <p>Updated after every pick. The page builds the best 13-man plan your money still buys: it starts from the kit's Scenarios and your card, then searches thousands of one- and two-player swaps, scoring expected roto in all 9 categories against the simulated rivals.</p>
-          <p>Prices follow the room: if sales run hot or cold, the plan's prices move with them. The top 3 are the plan's biggest buys right now. "Miss him" is how many roto points the plan loses if he goes elsewhere; "replaceable" means an equal player is still there.</p>
+          <p>Prices follow the room: if sales run hot or cold, the plan's prices move with them. The top 6 are the plan's biggest buys right now. "Miss him" is how many roto points the plan loses if he goes elsewhere; "replaceable" means an equal player is still there.</p>
           <p>Bid up to the cap, never past it.</p></div>
       </div>
       <div class="cont paste">
@@ -3190,7 +3190,7 @@ function renderNextBest(){
   const ri=E.RI.n?` · room prices ${E.RI.f>=1?'+':''}${Math.round((E.RI.f-1)*100)}% vs usual (${E.RI.n} sales)`:'';
   document.getElementById('nbN').innerHTML=`Best plan ≈ <b>${E.disc.toFixed(0)}</b> of 144 roto (≈${E.exp.toFixed(0)} with normal luck) · uses $${E.spent} of $${E.left}${ri}`;
   const weak=new Set(weakCats().map(c=>c.label));
-  const byCost=E.plan.slice().sort((a,b)=>(b.cost-a.cost)||(b.loss-a.loss)); const top=byCost.slice(0,3), rest=byCost.slice(3);
+  const byCost=E.plan.slice().sort((a,b)=>(b.cost-a.cost)||(b.loss-a.loss)); const top=byCost.slice(0,6), rest=byCost.slice(6);   // six cards since 12 Oct 2026 (Daniel: "recommend 6, not 3")
   top.forEach(x=>{ const bp=byName[x.q.name]; if(bp){ const pol=policyFor(bp); x.now=pol.cap||0; x.cap=pol.shaved&&pol.fullCap?pol.fullCap:x.now; } });
   // Card layout (11 Oct 2026, the designer's mock): rank tab, round face with the team under it, name and a card-target
   // chip, then one fact per line (position · team · plan price / odds and "miss him" / the room's real prices / strong
