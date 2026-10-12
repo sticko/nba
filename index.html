@@ -1335,7 +1335,10 @@ function renderLedger(){
     if(slotFilled(row)) return;
     const t = currentTargetFor(row);
     if(state.picks[t.name] || isKeeper(t.name)) return;   // whole chain gone / used elsewhere — nothing left to buy for this seat
-    anch += (t.simAvg || t.payLo || 0); anchN += 1;
+    // only an anchor you can still afford is money set aside (12 Oct 2026, Daniel: "rest/slot should be 10/3, right?"):
+    // with $10 left and 3 slots, a $32 star seat was still reserved and Rest / slot read $-11.1
+    const price=(t.simAvg || t.payLo || 0); if(!(price>0) || price > _mx - anch) return;
+    anch += price; anchN += 1;
   });
   document.getElementById('stAnch').textContent = '$'+Math.round(anch);
   const restSlots = Math.max(0, 13 - slots - anchN);
