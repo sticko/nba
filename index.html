@@ -858,7 +858,6 @@ details.method[open] summary:after{content:'\2212'}
     <button class="tab on" data-tab="proj" onclick="showTab('proj')">Players</button>
     <button class="tab" data-tab="live" onclick="showTab('live')">Gems &amp; plan</button>
     <button class="tab" data-tab="card" onclick="showTab('card')">Card</button>
-    <button class="tab" data-tab="bench" onclick="showTab('bench')">$1-8 bench</button>
     <button class="tab" data-tab="cheap3" onclick="showTab('cheap3')">$1-3 buys</button>
     <button class="tab" data-tab="team" onclick="showTab('team')">My team</button>
     <button class="tab" data-tab="standings" onclick="showTab('standings')">Standings</button>
@@ -921,13 +920,7 @@ details.method[open] summary:after{content:'\2212'}
     <div class="contnote" id="jumpNote"></div>
   </div>
   </section>
-  <section class="tabpane" data-pane="bench" hidden>
-  <div class="cont endgame">
-    <h2>Endgame board — the $1-8 bench <span class="n" id="egCount"></span></h2>
-    <div id="egBox"></div>
-    <div class="contnote">Everyone who costs $8 or less, where cost is <b>max(top of Pay ~, your Cap)</b> — the same rule the roster optimiser and the All-players filter chips use, so a player cannot be cheap on one tab and not on another. Ranked by 8-cat value with turnovers ignored, live-filtered as picks are logged. This tab used to say $1-5 while holding 22 players who cost $6-8, and Deandre Ayton sat on it at a real price of $9-13. Stars: <span style="color:#e6b422">★ gold</span> = primary target on your card · <span style="color:#b8c0cc">★ silver</span> = pivot on your card · <span style="color:#c8843a">★ bronze</span> = fills one of your weakest categories right now (recomputed after every pick). Price band is what the room pays; when your $/slot is under $3 this list IS your draft — bid $1, go to $2-3 only for a ★. To log a pick from here: <b>won</b> (asks the price) or <b>gone</b> on the row; click a name to open his instant call. Rookies (Brown Jr., Wilson, Lendeborg, Acuff, Wagler) carry a generic young-player line at their researched minutes.</div>
-  </div>
-  </section>
+  <!-- the $1-8 bench tab was removed on 12 Oct 2026 (Daniel): Players -> Price $1-8 and Tags -> Bench value show the same players -->
   <section class="tabpane" data-pane="cheap3" hidden>
   <div class="cont">
     <h2>Best $1-3 buys <span class="n" id="c3Count"></span></h2>
@@ -1021,7 +1014,7 @@ details.method[open] summary:after{content:'\2212'}
           <label title="Good $1-3 buys: a Good in the camp check of the $1-3 buys tab and still on that list. Marked Good $1-3 everywhere, and listed on the Live tab under the gems."><input type="checkbox" value="good" onchange="projPick('tag','good')"> Good $1-3</label>
           <label title="Strong players just above $3: usually sell for $4-10 in the simulated drafts, worth at least $6 more than that (Blend $), 50+ games, cap at or above the usual price, positive Edge. Marked Value $4-10 everywhere and listed on the Gems &amp; plan tab."><input type="checkbox" value="val" onchange="projPick('tag','val')"> Value $4-10</label>
           <label title="Players you get for $3 or less in at least half of 2,000 simulated drafts (a draft where nobody bought him counts as a $1 buy). The same list as the $1-3 buys tab, which also ranks them by Blend $ and shows the chance at $3."><input type="checkbox" value="c3" onchange="projPick('tag','c3')"> $1-3 buys</label>
-          <label title="A cheap bench player: costs $8 or less and is still worth $6+ in punt value: 35 players. The $1-8 bench tab uses the same $8 cost rule but filters on games played instead of value, so it is a wider list of 90."><input type="checkbox" value="bench" onchange="projPick('tag','bench')"> Bench value</label>
+          <label title="A cheap bench player: costs $8 or less and is still worth $6+ in punt value: 35 players. The old $1-8 bench tab used the same $8 cost rule but filtered on games played instead of value, so it is a wider list of 90."><input type="checkbox" value="bench" onchange="projPick('tag','bench')"> Bench value</label>
           <label title="Four years of service or fewer, projected 18+ minutes."><input type="checkbox" value="young" onchange="projPick('tag','young')"> Young</label>
           <label title="The 10 sleepers: hidden-value players the room does not see (quiet last season, no press, cheap last year), ranked by our value over the room's price."><input type="checkbox" value="sleeper" onchange="projPick('tag','sleeper')"> Sleepers</label>
         </div></details>
