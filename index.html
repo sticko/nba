@@ -449,6 +449,10 @@ table.ntab td.nm{white-space:nowrap}
 .nbresth span:first-child{font-family:'Big Shoulders Display',system-ui,sans-serif;font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:.02em;color:var(--text)}
 .nbrestn{font-size:11.5px;color:var(--text-dim)}
 .nbrestl{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);padding:10px 12px;margin-top:8px;font-size:12px;line-height:1.35}
+.nbstretch{display:flex;flex-direction:column;gap:6px;border:1px dashed var(--accent);border-radius:12px;padding:9px 12px;margin-top:8px;font-size:12px;line-height:1.35}
+.nbstretch a{color:var(--text);font-weight:700;text-decoration:none} .nbstretch a:hover{text-decoration:underline}
+.nbstretch .dim{display:block;color:var(--text-faint);font-size:11px} .nbstretch .pos{color:var(--good)} .nbstretch .neg{color:var(--danger)}
+.nbinfo .nbl.dim a{color:var(--text-dim);text-decoration:none} .nbinfo .nbl.dim a:hover{text-decoration:underline} .nbinfo .nbl .neg{color:var(--danger)}
 .nbrestl a{color:var(--text);text-decoration:none} .nbrestl a:hover{text-decoration:underline} .nbrestl b{font-weight:600;color:var(--text)}
 .nbhow{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);padding:10px 12px;margin-top:10px;font-size:12px;color:var(--text-dim);line-height:1.5}
 .nbhow p{margin:6px 0 0}
@@ -3149,14 +3153,34 @@ function nbEngine(){
   // One-for-one: if he goes elsewhere, the best single player the same money buys takes his slot and the other 12
   // stay. "Miss him" is the roto lost; "why him" splits it by category, so it shows HIS effect, not a reshuffle of the
   // whole plan (a re-plan made Edey look like +1.0 3PM because other players moved).
-  const plan=best.ros.map(x=>{ const others=best.ros.filter(y=>y!==x), budget=x.cost+best.money; let bestY=null, bestS=-1e9;
-      for(const y of cand.concat(dollar)){ if(best.ex.has(y.q.name)||y.cost>budget) continue; const t=others.concat([y]); const sc=evalR(t); if(sc>bestS&&legal(t)){ bestS=sc; bestY=y; } }
+  // ALSO GOOD FITS (12 Oct 2026, Daniel: "do it"): the three best one-for-one swaps are kept, not just the first, so each
+  // card can show the next choices and what each costs in roto against the plan.
+  const plan=best.ros.map(x=>{ const others=best.ros.filter(y=>y!==x), budget=x.cost+best.money; let bestY=null, bestS=-1e9; const alts=[];
+      for(const y of cand.concat(dollar)){ if(best.ex.has(y.q.name)||y.cost>budget) continue; const t=others.concat([y]); const sc=evalR(t); if(!legal(t)) continue;
+        alts.push({n:y.q.name,c:y.cost,d:sc-best.exp}); if(sc>bestS){ bestS=sc; bestY=y; } }
+      alts.sort((a,b)=>b.d-a.d); x.alts=alts.slice(0,3);
       const PC=bestY?nbExpCats(nbCats(vecOf(others.concat([bestY])))):null;
       const cat=PC?NB_CATS.map(k=>({k:LAB[k],d:bestC[k]-PC[k]})).filter(o=>Math.abs(o.d)>=0.2).sort((a,b)=>b.d-a.d):[];
       const inst=bestY?[{n:bestY.q.name,c:bestY.cost}]:[];
       const ranks=Object.entries(KEYS).map(([k,f])=>({k:LAB[k],r:1+avail.filter(o=>(+o[f]||0)>(+x.q[f]||0)).length})).filter(o=>o.r<=10).sort((a,b)=>a.r-b.r);
       return {...x,loss:bestY?best.exp-bestS:0,cat,inst,ranks}; });
-  const res={need,left,mine,plan,exp:best.exp,disc:nbDisc(nbCats(vecOf(best.ros))),spent:left-best.money,RI};
+  // STRETCH TARGETS (12 Oct 2026): players the plan leaves out because the room usually pays more than his cap, but whom
+  // you still win in 40%+ of cases at the cap (winProb: simulated room + this room's last two auctions). Each is put into
+  // the plan at his FULL cap in place of the one or two plan players that free the money and cost the least roto; the
+  // gain is the change in expected roto. Shown apart from the plan, which stays what you can count on.
+  const stretch=[];
+  if(need>=1){ const sgaOpen=!(isGone('Shai Gilgeous-Alexander')&&!isMine('Shai Gilgeous-Alexander'));
+    const sc=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>=40&&(q.blend||0)>0&&!byN.has(q.name)&&!(q.name==='Nikola Jokic'&&sgaOpen))
+      .sort((a,b)=>(b.blend||0)-(a.blend||0)).slice(0,120);
+    for(const q of sc){ const bp=byName[q.name]; let cap=typeof q.cap==='number'?q.cap:0; if(bp){ const pol=policyFor(bp); cap=pol.shaved&&pol.fullCap?pol.fullCap:(pol.cap||0); }
+      if(!(cap>=12)||usuallyLost(q.name,cap)) continue; const w=winProb(q.name,cap); if(!w||w.p<40) continue;   // $12+: an upgrade, not a bench swap
+      const y={q,cap,cost:cap,v:nbVec(q)}; let bestS=-1e9, out=null; const R=best.ros;
+      for(let i=0;i<R.length;i++){ if(best.money+R[i].cost<cap) continue; const t=R.filter((_,k)=>k!==i).concat([y]); const v=evalR(t); if(v>bestS&&legal(t)){ bestS=v; out=[R[i]]; } }
+      if(!out) for(let i=0;i<R.length;i++) for(let j=i+1;j<R.length;j++){ if(best.money+R[i].cost+R[j].cost<cap) continue;
+        const t=R.filter((_,k)=>k!==i&&k!==j).concat([y]); if(t.length+mine.length>13) continue; const v=evalR(t); if(v>bestS&&legal(t)){ bestS=v; out=[R[i],R[j]]; } }
+      if(out) stretch.push({q,cap,p:w.p,gain:bestS-best.exp,out:out.map(o=>o.q.name)}); }
+    stretch.sort((a,b)=>b.gain-a.gain); }
+  const res={need,left,mine,plan,exp:best.exp,disc:nbDisc(nbCats(vecOf(best.ros))),spent:left-best.money,RI,stretch:stretch.slice(0,5)};   // shown with their sign: a minus means the plan is better, which is worth knowing too
   _nbMemo={key,res}; return res;
 }
 function renderNextBest(){
@@ -3186,9 +3210,13 @@ function renderNextBest(){
           <div class="nbright">${capHTML}<span class="nbbtns"><button class="btn act-won" onclick="markWon('${nmJ}',true)">Won</button><button class="btn act-gone" onclick="markGone('${nmJ}')">Gone</button></span></div></div>
         <span class="nbl">${q.ypos||''} · Plan $${x.cost}${o?` · ${o.p}% at cap`:''} · ${lossTxt}${x.ranks&&x.ranks.length?` <span class="dim">· left: ${x.ranks.slice(0,2).map(r=>`#${r.r} ${r.k}`).join(', ')}</span>`:''}</span>${warn}
         ${x.inst&&x.inst.length&&x.cat&&x.cat.length?`<span class="nbl why"><span class="dim">vs ${x.inst.map(y=>`${y.n} $${y.c}`).join(' + ')}:</span> ${x.cat.slice(0,4).map(c=>`<span class="${c.d>0?'pos':'neg'}">${c.d>0?'+':'−'}${Math.abs(c.d).toFixed(1)} ${c.k}</span>`).join(' · ')}</span>`:''}
+        ${x.alts&&x.alts.length?`<span class="nbl dim">Also good: ${x.alts.map(a=>`<a href="#" onclick="return openCall('${a.n.replace(/'/g,"\\'")}')">${a.n}</a> $${a.c} <span class="neg">${a.d>=0?'+':'−'}${Math.abs(a.d).toFixed(1)}</span>`).join(' · ')}</span>`:''}
       </div></div>`; }).join('')
     +(rest.length?`<div class="nbresth"><span>Rest of the plan</span><span class="nbrestn">${rest.length} players · total $${E.spent} / $${E.left}</span></div>
-      <div class="nbrestl">${rest.map(x=>{ const r=paid(x.q.name); return `<div><a href="#" onclick="return openCall('${x.q.name.replace(/'/g,"\\'")}')">${x.q.name}</a> <b>$${x.cost}</b>${x.cap<=1?' <span class="dim">(only at $1, end filler)</span>':''}${r.some(v=>v>x.cost)?` <span class="paidnote">(room paid $${r.join(' / $')})</span>`:''}</div>`; }).join('')}</div>`:'');
+      <div class="nbrestl">${rest.map(x=>{ const r=paid(x.q.name); return `<div><a href="#" onclick="return openCall('${x.q.name.replace(/'/g,"\\'")}')">${x.q.name}</a> <b>$${x.cost}</b>${x.cap<=1?' <span class="dim">(only at $1, end filler)</span>':''}${r.some(v=>v>x.cost)?` <span class="paidnote">(room paid $${r.join(' / $')})</span>`:''}</div>`; }).join('')}</div>`:'')
+    +(E.stretch&&E.stretch.length?`<div class="nbresth"><span>Stretch targets</span><span class="nbrestn">not in the plan · 40%+ to win at your cap · + beats the plan</span></div>
+      <div class="nbstretch">${E.stretch.map(x=>`<div><a href="#" onclick="return openCall('${x.q.name.replace(/'/g,"\\'")}')">${x.q.name}</a>${gemTag(x.q.name)}
+        <span class="dim">cap $${x.cap} · ${x.p}% to win at cap · in place of ${x.out.join(' + ')}</span> <b class="${x.gain>=0?'pos':'neg'}">${x.gain>=0?'+':'−'}${Math.abs(x.gain).toFixed(1)} roto vs the plan</b></div>`).join('')}</div>`:'');
 }
 function renderMyPlayers(){
   const box=document.getElementById('mpList'); if(!box) return; const ms=myStatus(), maxBid=ms.need>0?ms.left-Math.max(0,ms.need-1):0;
