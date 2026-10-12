@@ -3212,11 +3212,12 @@ function renderNextBest(){
         ${x.inst&&x.inst.length&&x.cat&&x.cat.length?`<span class="nbl why"><span class="dim">vs ${x.inst.map(y=>`${y.n} $${y.c}`).join(' + ')}:</span> ${x.cat.slice(0,4).map(c=>`<span class="${c.d>0?'pos':'neg'}">${c.d>0?'+':'−'}${Math.abs(c.d).toFixed(1)} ${c.k}</span>`).join(' · ')}</span>`:''}
         ${x.alts&&x.alts.length?`<span class="nbl dim">Also good: ${x.alts.map(a=>`<a href="#" onclick="return openCall('${a.n.replace(/'/g,"\\'")}')">${a.n}</a> $${a.c} <span class="neg">${a.d>=0?'+':'−'}${Math.abs(a.d).toFixed(1)}</span>`).join(' · ')}</span>`:''}
       </div></div>`; }).join('')
+    +`<div class="nbresth"><span>Stretch targets</span><span class="nbrestn">not in the plan · 40%+ to win at your cap · + beats the plan</span></div>
+      ${E.stretch&&E.stretch.length?`<div class="nbstretch">${E.stretch.map(x=>`<div><a href="#" onclick="return openCall('${x.q.name.replace(/'/g,"\\'")}')">${x.q.name}</a>${gemTag(x.q.name)}
+        <span class="dim">cap $${x.cap} · ${x.p}% to win at cap · in place of ${x.out.join(' + ')}</span> <b class="${x.gain>=0?'pos':'neg'}">${x.gain>=0?'+':'−'}${Math.abs(x.gain).toFixed(1)} roto vs the plan</b></div>`).join('')}</div>`
+        :`<div class="nbstretch"><span class="dim">None right now: no player outside the plan with a cap of $12+ is won in 40% or more of cases at his cap.</span></div>`}`
     +(rest.length?`<div class="nbresth"><span>Rest of the plan</span><span class="nbrestn">${rest.length} players · total $${E.spent} / $${E.left}</span></div>
-      <div class="nbrestl">${rest.map(x=>{ const r=paid(x.q.name); return `<div><a href="#" onclick="return openCall('${x.q.name.replace(/'/g,"\\'")}')">${x.q.name}</a> <b>$${x.cost}</b>${x.cap<=1?' <span class="dim">(only at $1, end filler)</span>':''}${r.some(v=>v>x.cost)?` <span class="paidnote">(room paid $${r.join(' / $')})</span>`:''}</div>`; }).join('')}</div>`:'')
-    +(E.stretch&&E.stretch.length?`<div class="nbresth"><span>Stretch targets</span><span class="nbrestn">not in the plan · 40%+ to win at your cap · + beats the plan</span></div>
-      <div class="nbstretch">${E.stretch.map(x=>`<div><a href="#" onclick="return openCall('${x.q.name.replace(/'/g,"\\'")}')">${x.q.name}</a>${gemTag(x.q.name)}
-        <span class="dim">cap $${x.cap} · ${x.p}% to win at cap · in place of ${x.out.join(' + ')}</span> <b class="${x.gain>=0?'pos':'neg'}">${x.gain>=0?'+':'−'}${Math.abs(x.gain).toFixed(1)} roto vs the plan</b></div>`).join('')}</div>`:'');
+      <div class="nbrestl">${rest.map(x=>{ const r=paid(x.q.name); return `<div><a href="#" onclick="return openCall('${x.q.name.replace(/'/g,"\\'")}')">${x.q.name}</a> <b>$${x.cost}</b>${x.cap<=1?' <span class="dim">(only at $1, end filler)</span>':''}${r.some(v=>v>x.cost)?` <span class="paidnote">(room paid $${r.join(' / $')})</span>`:''}</div>`; }).join('')}</div>`:'');
 }
 function renderMyPlayers(){
   const box=document.getElementById('mpList'); if(!box) return; const ms=myStatus(), maxBid=ms.need>0?ms.left-Math.max(0,ms.need-1):0;
