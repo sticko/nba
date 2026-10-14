@@ -768,6 +768,8 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .hist .facts{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--text-dim)} .hist .facts b{color:var(--text)}
 .hist .bar{display:inline-block;height:8px;border-radius:4px;background:var(--accent);vertical-align:middle;margin-right:6px}
 .hist .take{font-size:12.5px;color:var(--text);background:var(--accent-soft);border-radius:8px;padding:8px 12px;margin-top:8px}
+.rdc{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text-dim)} .rdc.rdplan{color:var(--good);font-weight:700} .rdc.rdok{color:var(--text);font-weight:600} .rdc.rdbad{color:var(--text-faint)}
+.rdc .rdp{font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--good);border:1px solid var(--good);border-radius:4px;padding:0 3px;margin-right:2px}
 .mgr-sumn{font-size:11.5px;color:var(--text-faint);margin-top:6px}
 .mgr-chs{display:flex;flex-wrap:wrap;gap:4px}
 .mgr-ch{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;background:var(--surface)} .mgr-ch b{color:var(--text)}
@@ -2515,13 +2517,13 @@ function projSortBy(c){ if(projSort.col===c) projSort.dir*=-1; else projSort={co
 function projMore(){ projLimit+=250; renderProj(); }
 // Column order (10 Oct 2026): what you decide and log with comes first, so nothing needs a sideways scroll during the
 // draft — player, won/gone, live cap, room price, value — then the stat line, then the history and research.
-const PROJCOLS=[['name','Player','l'],['__st','Log','l'],['cap','Cap'],['lo','Pay ~'],['blend','Blend $'],['edge','Edge'],['y','Y! Proj$'],['ya','Y! Avg$'],['seat','My seat','l'],
+const PROJCOLS=[['name','Player','l'],['__st','Log','l'],['cap','Cap'],['lo','Pay ~'],['blend','Blend $'],['edge','Edge'],['rd','Roto +/-'],['y','Y! Proj$'],['ya','Y! Avg$'],['seat','My seat','l'],
   ['tm','Tm','l'],['ypos','Pos','l'],['g','G'],['min','Min'],['p','Pts'],['tp','3s'],['r','Reb'],['a','Ast'],['s','Stl'],['b','Blk'],['to','TO'],['fg','FG%'],['ft','FT%'],
   ['punt','Punt $'],['vrng','Range $'],['a24','ALMOC 24'],['a25','ALMOC 25'],['lrt','25-26 tot'],['lr','25-26 pg'],['nwn','Press'],['pj','Jump'],['age','Age'],['rk','#'],['lsrc','Src','l']];
 // Column tooltips. The two rank columns are the reason this exists: roto scores season TOTALS, and for a
 // player who stayed healthy the per-game rank is much worse than the totals rank (Buzelis is #42 on totals
 // and #74 per game). Printing one bare number invited the reader to take it for the other.
-const PROJTIP={ age:'His age on 1 February 2027, in years.', p:'Points per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', tp:'Threes made per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', r:'Rebounds per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', a:'Assists per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', s:'Steals per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', b:'Blocks per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', to:'Turnovers per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these. This league punts turnovers, so a high number here is not automatically a problem.', fg:'Field-goal percentage — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', ft:'Free-throw percentage — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.',rk:'Our 2026-27 rank by Punt $: 8-cat value with turnovers ignored, on projected SEASON TOTALS.',
+const PROJTIP={ rd:'What he does for YOUR team: expected roto points of your final roster if you buy him at his usual price, compared with your current best plan (the one behind Best next buys). Plus = the plan wants him (the number is how much better he is than the best replacement). Minus = buying him costs that many points, because the money or the roster slot does more elsewhere. Changes after every pick. Our projections against the simulated room; the Cap still says what to pay. Hover a number for the categories.', age:'His age on 1 February 2027, in years.', p:'Points per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', tp:'Threes made per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', r:'Rebounds per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', a:'Assists per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', s:'Steals per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', b:'Blocks per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', to:'Turnovers per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these. This league punts turnovers, so a high number here is not automatically a problem.', fg:'Field-goal percentage — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', ft:'Free-throw percentage — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.',rk:'Our 2026-27 rank by Punt $: 8-cat value with turnovers ignored, on projected SEASON TOTALS.',
  y:"Y! Proj$: Yahoo's pre-draft dollar value for your league (League Value; the export's Proj Salary is the same number).", ya:'What other Yahoo leagues actually PAID for him, averaged — Yahoo\'s own receipt next to its own asking price. READ IT ONLY AT THE TOP. Yahoo averages over every league, including the ones where he went undrafted and counted as about $0, so the number only means market price for players drafted nearly everywhere: above a $40 list it runs about 1.1x the list, $20-40 about 0.7x, but under $20 it collapses to about 0.2x and is measuring how often he goes UNDRAFTED, not what he costs. Desmond Bane lists at $23 and shows $2. Only 193 of 677 players have one at all; a dash means Yahoo published none.',
  punt:'Our engine\'s value in dollars, 8-cat with turnovers ignored, on a 16-team $200 scale.',
  rep:'What his REAL 2025-26 season would be worth on the same scale as Punt $: the value if he only repeats last season. Read it next to Punt $ — the gap is what the projection expects to change. Blank: no 2025-26 NBA season.',
@@ -2536,6 +2538,14 @@ const PROJTIP={ age:'His age on 1 February 2027, in years.', p:'Points per game 
  lr:'His 2025-26 rank PER GAME. Flatters anyone who missed games — compare it with the totals rank to its left.',
  pj:'Chance he finishes inside the top 70.', min:'Projected minutes per game.', g:'Projected games played.',
  nwn:'How many Rotoworld pieces were written about him between 1 July and 13 September. Every manager in this room reads them. Hover a cell for the latest headline. Red = the press has called him a fantasy buy, so he is not a sleeper whatever his line says.'};
+function rdCell(r){ if(!r) return '<td>—</td>';
+  if(r.d==null) return `<td class="rdc" data-tip="${r.why} (usual price $${r.c})">—</td>`;
+  const v=r.d, txt=(v>=0.05?'+':v<=-0.05?'−':'')+Math.abs(v).toFixed(1), cls=r.plan?'rdplan':v>=-0.5?'rdok':v<=-3?'rdbad':'';
+  const cs=r.cat||[], f=o=>`${o.k} ${o.d>0?'+':'−'}${Math.abs(o.d).toFixed(1)}`;
+  const cats=r.plan?cs.slice(0,4).map(f).join(', '):[...cs.filter(o=>o.d>0).slice(0,3),...cs.filter(o=>o.d<0).slice(-3).reverse()].map(f).join(', ');
+  const tip=r.plan?`In your best plan at about $${r.c}. If he goes elsewhere, the best replacement (${(r.out||[]).join(', ')||'none'}) leaves you ${v.toFixed(1)} roto points lower${cats?'. Categories he carries: '+cats:''}.`
+    :`At about $${r.c} in place of ${(r.out||[]).join(' and ')}${r.fill?` (plus ${r.fill} at $1 in the free slot)`:''}: ${v>=0?'+':'−'}${Math.abs(v).toFixed(1)} expected roto points against your best plan${cats?'. By category: '+cats:''}.`;
+  return `<td class="rdc ${cls}" data-tip="${tip.replace(/"/g,'&quot;')}">${r.plan?'<span class="rdp">plan</span> ':''}${txt}</td>`; }
 function renderProj(){
   const t=document.getElementById('projTable'); if(!t) return; projChips();
   const q=fold((document.getElementById('projQ')||{}).value||''), pos=(document.getElementById('projPos')||{}).value||'', tm=(document.getElementById('projTeam')||{}).value||'';
@@ -2561,6 +2571,7 @@ function renderProj(){
   // so this column and the call box can never show two numbers; off the board it is the projection file's Cap.
   rows.forEach(p=>{ if(p.cap==='KEEPER'){ p.capNow=-2; p.edgeLive=null; return; } const bp=byName[p.name]; p.capNow=bp?(policyFor(bp).cap||0):(typeof p.cap==='number'?p.cap:0);
     p.edgeLive=Math.round((p.blend||0)-Math.max(+p.hi||0, p.capNow)); });
+  const RD=(nbEngine().rd)||{}; rows.forEach(p=>{ const r=RD[p.name]; p.rdv=r&&r.d!=null?r.d:null; });
   const c=projSort.col, d=projSort.dir;
   const SEATORD={anchor:0,star:1,mid:2,cheap:3,off:9};
   rows.sort((a,b)=>{ let x=a[c],y=b[c];
@@ -2568,6 +2579,7 @@ function renderProj(){
       x=sa?SEATORD[seatKind(sa)]:9; y=sb?SEATORD[seatKind(sb)]:9; return d*(x-y); }
     if(c==='cap'){ x=a.capNow; y=b.capNow; }
     if(c==='edge'){ x=a.edgeLive; y=b.edgeLive; }
+    if(c==='rd'){ x=a.rdv; y=b.rdv; }
     if(typeof x==='string'||typeof y==='string'){ x=String(x==null?'':x); y=String(y==null?'':y); return d*x.localeCompare(y); }
     if(x==null) return 1; if(y==null) return -1; return d*(x-y); });
   const total=rows.length, shown=rows.slice(0,projLimit);
@@ -2587,7 +2599,7 @@ function renderProj(){
     const cells={
       name:`<td class="l nm">${faceHTML(p.name)}<a href="#" class="pnm" onclick="return openCall('${esc}')">${p.name}</a>${gemTag(p.name)}${p.keep?` <span class="src">${p.keep}</span>`:''}</td>`,
       __st:`<td class="l act">${act}</td>`, cap:`<td>${capC}</td>`, lo:`<td>${p.lo!=null?'$'+p.lo+'-'+p.hi:'—'}</td>`,
-      blend:`<td>${p.blend?'$'+p.blend:'—'}</td>`, edge:`<td>${edge}</td>`, y:`<td>${p.y?'$'+p.y:'—'}</td>`,
+      blend:`<td>${p.blend?'$'+p.blend:'—'}</td>`, edge:`<td>${edge}</td>`, rd:rdCell(RD[p.name]), y:`<td>${p.y?'$'+p.y:'—'}</td>`,
       seat:`<td class="l">${seatOf[p.name]?seatPill(seatOf[p.name],true)+(planBudget[p.name]?`<span class="planb" title="what the card budgets for this seat">$${planBudget[p.name]}</span>`:''):''}</td>`,
       tm:`<td class="l">${p.tm||''}</td>`, ypos:`<td class="l">${p.ypos||p.grp||''}</td>`, g:`<td>${p.g??''}</td>`, min:`<td>${p.min??''}</td>`,
       p:`<td>${p.p??''}</td>`, tp:`<td>${p.tp??''}</td>`, r:`<td>${p.r??''}</td>`, a:`<td>${p.a??''}</td>`, s:`<td>${p.s??''}</td>`, b:`<td>${p.b??''}</td>`, to:`<td>${p.to??''}</td>`,
@@ -3246,7 +3258,7 @@ function nbEngine(){
   const legal=ros=>{ const all=mineSlots.concat(ros.map(x=>slotObj(x.q))); const u=assignSlots(all); return all.every((x,i)=>u.indexOf(i)>=0); };
   const vecOf=ros=>ros.reduce((acc,x)=>acc.map((y,i)=>y+x.v[i]), baseV.slice());
   const evalR=ros=>nbExp(nbCats(vecOf(ros)));
-  if(need<=0){ const res={need, left, mine, plan:[], exp:nbExp(nbCats(baseV)), disc:nbDisc(nbCats(baseV)), spent:0, RI}; _nbMemo={key,res}; return res; }
+  if(need<=0){ const res={need, left, mine, plan:[], exp:nbExp(nbCats(baseV)), disc:nbDisc(nbCats(baseV)), spent:0, RI, rd:{}}; _nbMemo={key,res}; return res; }
   // a full plan from a seed (affordable seed players kept, keeping $1 per later slot; the rest greedy), then single-swap polish
   const fillFrom=(seed,excl)=>{ const ex=new Set(excl||[]); const ros=[]; let money=left;
     for(const x of seed){ if(ros.length>=need) break; if(!x||ex.has(x.q.name)) continue; if(x.cost>money-(need-ros.length-1)) continue; ros.push(x); ex.add(x.q.name); money-=x.cost; }
@@ -3312,7 +3324,36 @@ function nbEngine(){
         const t=R.filter((_,k)=>k!==i&&k!==j).concat([y]); if(t.length+mine.length>13) continue; const v=evalR(t); if(v>bestS&&legal(t)){ bestS=v; out=[R[i],R[j]]; } }
       if(out) stretch.push({q,cap,p:w.p,gain:bestS-best.exp,out:out.map(o=>o.q.name)}); }
     stretch.sort((a,b)=>b.gain-a.gain); }
-  const res={need,left,mine,plan,exp:best.exp,disc:nbDisc(nbCats(vecOf(best.ros))),spent:left-best.money,RI,stretch:stretch.slice(0,5)};   // shown with their sign: a minus means the plan is better, which is worth knowing too
+  // ROTO +/- FOR EVERY PLAYER STILL AVAILABLE (14 Oct 2026, Daniel: "once we start drafting is it possible to have a
+  // dynamic score of +/- roto value for each player still waiting, depending on what my roster has"). The same yardstick
+  // as "miss him", applied to the whole board: buy him at his realistic price (usual price x room index, never under the
+  // lower of his last two real ALMOC prices) in place of the one plan player - or two, for an expensive one - whose
+  // money pays for him and whose loss hurts least; the number is the change in EXPECTED roto of your final team against
+  // the current best plan. Plan players show +(miss him): how much better he is than the best one-for-one replacement.
+  // So + means "the plan wants him", -0.3 means "nearly as good", -4 means "a poor fit for this roster at this price".
+  // Recomputed after every logged pick (memoised with the plan). Cap and usually-lost are NOT applied here: the column
+  // answers "what would he do for my team", the Cap still says what to pay. Our projections vs the simulated room.
+  const rd={};
+  { const R=best.ros, full=vecOf(R), inPlan=new Map(plan.map(x=>[x.q.name,x]));
+    // two out for one: the second freed slot is refilled with the best $1 player not in the plan (else the gap in games
+    // alone would sink every expensive player)
+    const filler=dollar.find(z=>!best.ex.has(z.q.name));
+    const vecSwap=(outIdx,ins)=>{ const v=full.slice(); for(const i of outIdx) for(let k=0;k<12;k++) v[k]-=R[i].v[k]; for(const z of ins) for(let k=0;k<12;k++) v[k]+=z.v[k]; return v; };
+    const scoreOut=(outIdx,ins)=>nbExp(nbCats(vecSwap(outIdx,ins)));
+    for(const q of PJ){ if(state.picks[q.name]||q.cap==='KEEPER'||isKeeper(q.name)||!((q.g||0)>0)) continue;
+      const px=inPlan.get(q.name); if(px){ rd[q.name]={d:px.loss,c:px.cost,plan:true,cat:px.cat,out:px.inst.map(o=>o.n)}; continue; }
+      const rp=roomPaid(q.name), floor=rp.length>=2?Math.min(...rp):0, cost=Math.max(1,Math.round(usualPrice(q)*RI.f),floor);
+      const y={q,cost,v:nbVec(q)}, tries=[];
+      for(let i=0;i<R.length;i++) if(best.money+R[i].cost>=cost) tries.push({o:[i],ins:[y],sc:scoreOut([i],[y])});
+      if(filler&&filler.q.name!==q.name&&R.length>=2) for(let i=0;i<R.length;i++) for(let j=i+1;j<R.length;j++)
+        if(best.money+R[i].cost+R[j].cost>=cost+1) tries.push({o:[i,j],ins:[y,filler],sc:scoreOut([i,j],[y,filler])});
+      tries.sort((a,b)=>b.sc-a.sc); let pick=null;
+      for(const t of tries.slice(0,8)){ const ros=R.filter((_,k)=>!t.o.includes(k)).concat(t.ins); if(legal(ros)){ pick=t; break; } }
+      if(!pick){ rd[q.name]={d:null,c:cost,why:tries.length?'no roster slot fits him':'costs more than any one or two plan players free up'}; continue; }
+      const C=nbExpCats(nbCats(vecSwap(pick.o,pick.ins)));
+      const cat=NB_CATS.map(k=>({k:LAB[k],d:C[k]-bestC[k]})).filter(o=>Math.abs(o.d)>=0.2).sort((a,b)=>b.d-a.d);
+      rd[q.name]={d:pick.sc-best.exp,c:cost,cat,out:pick.o.map(i=>R[i].q.name),fill:pick.ins.length>1?filler.q.name:null}; } }
+  const res={need,left,mine,plan,exp:best.exp,disc:nbDisc(nbCats(vecOf(best.ros))),spent:left-best.money,RI,stretch:stretch.slice(0,5),rd};   // shown with their sign: a minus means the plan is better, which is worth knowing too
   _nbMemo={key,res}; return res;
 }
 function renderNextBest(){
