@@ -579,6 +579,20 @@ table.standtab tr:nth-child(even) td{background:var(--zebra-tint)}
 .tagdd-menu label{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;font-size:12.5px;color:var(--text);cursor:pointer;white-space:nowrap}
 .tagdd-menu label:hover{background:var(--surface-2)}
 .tagdd-menu input{accent-color:var(--accent)}
+.dol-menu{min-width:270px;gap:8px;padding:10px 12px}
+.dol-h{font-size:11px;color:var(--text-faint)}
+.dol-src{display:grid;grid-template-columns:1fr 1fr;gap:0 4px} .dol-src label{padding:4px 6px}
+.dol-sl{position:relative;height:26px;margin:2px 4px}
+.dol-track{position:absolute;left:0;right:0;top:11px;height:4px;border-radius:2px;background:var(--line)}
+.dol-fill{position:absolute;top:0;height:4px;border-radius:2px;background:var(--accent)}
+.dol-sl input[type=range]{position:absolute;left:0;top:0;width:100%;height:26px;margin:0;background:none;pointer-events:none;-webkit-appearance:none;appearance:none}
+.dol-sl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:16px;height:16px;border-radius:50%;background:var(--surface);border:2px solid var(--accent);cursor:pointer}
+.dol-sl input[type=range]::-moz-range-thumb{pointer-events:auto;width:14px;height:14px;border-radius:50%;background:var(--surface);border:2px solid var(--accent);cursor:pointer}
+.dol-sl input[type=range]::-webkit-slider-runnable-track{background:none} .dol-sl input[type=range]::-moz-range-track{background:none}
+.dol-num{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-dim)} .dol-num label{display:flex;align-items:center;gap:4px;padding:0}
+.dol-num input{width:52px;padding:3px 5px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text);font-variant-numeric:tabular-nums}
+.dol-num .chipbtn{margin-left:auto}
+.dol-note{font-size:10.5px;color:var(--text-faint);white-space:normal}
 .projwrap{overflow:auto;max-height:74vh;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow-anchor:none}   /* anchoring re-scrolled the box after a filter shrank it, hiding the only result */
 table.proj{border-collapse:separate;border-spacing:0;width:100%;font-size:11.5px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
 table.proj th{position:sticky;top:0;z-index:2;background:var(--surface-2);border-bottom:1px solid var(--line);padding:7px 5px;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);cursor:pointer;white-space:nowrap;text-align:right}
@@ -1069,7 +1083,22 @@ details.method[open] summary:after{content:'\2212'}
           <label title="Four years of service or fewer, projected 18+ minutes."><input type="checkbox" value="young" onchange="projPick('tag','young')"> Young</label>
           <label title="The 10 sleepers: hidden-value players the room does not see (quiet last season, no press, cheap last year), ranked by our value over the room's price."><input type="checkbox" value="sleeper" onchange="projPick('tag','sleeper')"> Sleepers</label>
         </div></details>
-        <button class="chipbtn reset" onclick="projReset()" data-tip="Back to: Available, any level, any price, no tags.">Reset</button>
+        <details class="tagdd dold" id="fDol"><summary id="fDolSum">$ range</summary><div class="tagdd-menu dol-menu">
+          <div class="dol-h">Filter on (ticked two or more: his highest of them)</div>
+          <div class="dol-src">
+            <label><input type="checkbox" value="y" onchange="dolSrc(this)"> Y! Proj$</label>
+            <label><input type="checkbox" value="ya" onchange="dolSrc(this)"> Y! Avg$</label>
+            <label><input type="checkbox" value="a25" onchange="dolSrc(this)"> ALMOC 25</label>
+            <label><input type="checkbox" value="a24" onchange="dolSrc(this)"> ALMOC 24</label>
+          </div>
+          <div class="dol-sl"><div class="dol-track"><div class="dol-fill" id="dolFill"></div></div>
+            <input type="range" id="dolLo" min="0" step="1" oninput="dolSet('lo',this.value)" aria-label="Minimum dollars">
+            <input type="range" id="dolHi" min="0" step="1" oninput="dolSet('hi',this.value)" aria-label="Maximum dollars"></div>
+          <div class="dol-num"><label>Min $<input type="number" id="dolLoN" min="0" onchange="dolSet('lo',this.value)"></label><label>Max $<input type="number" id="dolHiN" min="0" onchange="dolSet('hi',this.value)"></label>
+            <button class="chipbtn" onclick="dolClear()">Clear</button></div>
+          <div class="dol-note">A player with no value in a ticked column counts as $0 there (for example, not bought in that auction).</div>
+        </div></details>
+        <button class="chipbtn reset" onclick="projReset()" data-tip="Back to: Available, any level, any price, no tags, no $ range.">Reset</button>
       </div>
       <div class="projwrap"><table class="proj" id="projTable"></table></div>
       <div class="projfoot"><span id="projCount"></span><span>Stat line source: <b>board</b> = September research minutes and edits on the engine2 per-minute base · <b>engine2</b> = the backtested engine (stats, minutes, games) · <b>rookie</b> = the rookie engine</span></div>
@@ -2494,7 +2523,19 @@ const OVER=new Set(PJ.filter(q=>q.over).map(q=>q.name));
 // COMBINABLE FILTERS (12 Oct 2026, Daniel: "this filter is not flexible enough, e.g. I just want to see star players
 // at any price"). Four groups: Show (one), Level = top N by Blend $ (one), Price band (one), Tags (any number, a player
 // passes if he has ANY ticked tag). The groups combine with AND.
-let projFilt={show:'avail',lvl:'any',price:'any',tags:new Set()}, projF='avail';
+// $ RANGE (14 Oct 2026, Daniel: "give me filter slider for amount dollar shown ... which dollar amount: Y proj, yahoo
+// dollar or draft 25, 24? if I pick two, then max of those"). A min-max slider over the ticked dollar columns; with two
+// or more ticked a player's value is the HIGHEST of them; a missing value counts as $0. Off while the range is full.
+const DOLMAX=Math.max(10,Math.ceil(Math.max(...PJ.map(q=>Math.max(+q.y||0,+q.ya||0,+q.a24||0,+q.a25||0)))/5)*5);
+const dolNew=()=>({src:new Set(['ya']),lo:0,hi:DOLMAX});
+let projFilt={show:'avail',lvl:'any',price:'any',tags:new Set(),dol:dolNew()}, projF='avail';
+const DOLLAB={y:'Y! Proj$',ya:'Y! Avg$',a25:'ALMOC 25',a24:'ALMOC 24'};
+function dolOn(){ const D=projFilt.dol; return D.src.size>0&&(D.lo>0||D.hi<DOLMAX); }
+function dolVal(p){ let v=0; for(const k of projFilt.dol.src) v=Math.max(v,+p[k]||0); return v; }
+function dolSrc(el){ const S=projFilt.dol.src; el.checked?S.add(el.value):S.delete(el.value); projLimit=150; projChips(); renderProj(); }
+function dolSet(which,v){ const D=projFilt.dol; v=Math.max(0,Math.min(DOLMAX,Math.round(+v||0)));
+  if(which==='lo') D.lo=Math.min(v,D.hi); else D.hi=Math.max(v,D.lo); projLimit=150; projChips(); renderProj(); }
+function dolClear(){ projFilt.dol=dolNew(); projLimit=150; projChips(); renderProj(); }
 let projSort={col:'ya',dir:-1}, projLimit=150;   // default: Y! Avg$ high to low (11 Oct 2026, Daniel)
 let _blendRank=null;
 function blendRank(n){ if(!_blendRank){ _blendRank=new Map(); PJ.slice().sort((a,b)=>(b.blend||0)-(a.blend||0)).forEach((q,i)=>_blendRank.set(q.name,i+1)); } return _blendRank.get(n)||9999; }
@@ -2505,12 +2546,20 @@ function projChips(){ const set=(id,v)=>{ const e=document.getElementById(id); i
   const labs=[]; document.querySelectorAll('#fTags input[type=checkbox]').forEach(c=>{ c.checked=projFilt.tags.has(c.value); if(c.checked) labs.push(c.parentNode.textContent.trim()); });
   const sum=document.getElementById('fTagsSum'); if(sum){ sum.textContent=labs.length?`Tags: ${labs.join(', ')}`:'Tags'; sum.classList.toggle('on',labs.length>0); }
   ['fShow','fLvl','fPrice'].forEach(id=>{ const e=document.getElementById(id); if(e) e.classList.toggle('on', e.value!==(id==='fShow'?'avail':'any')); });
+  const D=projFilt.dol, lo=document.getElementById('dolLo'), hi=document.getElementById('dolHi');
+  if(lo&&hi){ lo.max=hi.max=DOLMAX; if(+lo.value!==D.lo) lo.value=D.lo; if(+hi.value!==D.hi) hi.value=D.hi;
+    const ln=document.getElementById('dolLoN'), hn=document.getElementById('dolHiN'); ln.max=hn.max=DOLMAX; if(+ln.value!==D.lo) ln.value=D.lo; if(+hn.value!==D.hi) hn.value=D.hi;
+    const f=document.getElementById('dolFill'); f.style.left=(100*D.lo/DOLMAX)+'%'; f.style.width=(100*(D.hi-D.lo)/DOLMAX)+'%';
+    lo.style.zIndex=D.lo>DOLMAX-5?3:1; }
+  document.querySelectorAll('#fDol .dol-src input').forEach(c=>{ c.checked=D.src.has(c.value); });
+  const ds=document.getElementById('fDolSum'); if(ds){ const on=dolOn(), names=[...D.src].map(k=>DOLLAB[k]);
+    ds.textContent=on?`${names.length>1?'max('+names.join(', ')+')':names[0]} $${D.lo}-${D.hi}`:'$ range'; ds.classList.toggle('on',on); }
   projF=projFilt.show; }
-document.addEventListener('click',e=>{ const d=document.getElementById('fTags'); if(d&&d.open&&!d.contains(e.target)) d.open=false; });
+document.addEventListener('click',e=>{ ['fTags','fDol'].forEach(id=>{ const d=document.getElementById(id); if(d&&d.open&&!d.contains(e.target)) d.open=false; }); });
 function projPick(g,v){ if(g==='tag'){ projFilt.tags.has(v)?projFilt.tags.delete(v):projFilt.tags.add(v); } else projFilt[g]=v; projLimit=150; projChips(); renderProj(); }
-function projReset(){ projFilt={show:'avail',lvl:'any',price:'any',tags:new Set()}; projLimit=150; projChips(); renderProj(); }
+function projReset(){ projFilt={show:'avail',lvl:'any',price:'any',tags:new Set(),dol:dolNew()}; projLimit=150; projChips(); renderProj(); }
 // the old single-choice filter names, kept for links and tests that still call them
-function projSetF(f){ projFilt={show:projFilt.show,lvl:'any',price:'any',tags:new Set()};
+function projSetF(f){ projFilt={show:projFilt.show,lvl:'any',price:'any',tags:new Set(),dol:dolNew()};
   if(['avail','all','mine'].includes(f)) projFilt.show=f; else if(['anchor','star','mid'].includes(f)) projFilt.price=f;
   else projFilt.tags.add(f==='cheap'?'bench':f); projLimit=150; projChips(); renderProj(); }
 function projSortBy(c){ if(projSort.col===c) projSort.dir*=-1; else projSort={col:c,dir:(c==='rk'||c==='r9'||c==='lr')?1:-1}; renderProj(); }
@@ -2561,6 +2610,7 @@ function renderProj(){
     if(F.show==='mine' && !isMine(p.name)) return false;
     if(F.lvl!=='any' && blendRank(p.name)>+F.lvl) return false;
     if(F.price!=='any' && (p.cap==='KEEPER' || priceBand(p)!==F.price)) return false;
+    if(dolOn()){ const v=dolVal(p); if(v<F.dol.lo||v>F.dol.hi) return false; }
     if(F.tags.size){ const has={card:()=>onCard.has(p.name), short:()=>onCard.has(p.name)||scenNames().has(p.name)||valueScreen(p),
         gem:()=>(gemInfo(p.name)||{}).tier==='gem', good:()=>(gemInfo(p.name)||{}).tier==='good', val:()=>!!valueInfo(p.name),
         c3:()=>!!c3Eligible(p), bench:()=>valueScreen(p), young:()=>(p.yrs!=null&&p.yrs<=4&&(p.min||0)>=18), sleeper:()=>sleeperMap().has(p.name)};
