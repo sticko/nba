@@ -2593,7 +2593,7 @@ function rdCell(r){ if(!r) return '<td>—</td>';
   const cs=r.cat||[], f=o=>`${o.k} ${o.d>0?'+':'−'}${Math.abs(o.d).toFixed(1)}`;
   const cats=r.plan?cs.slice(0,4).map(f).join(', '):[...cs.filter(o=>o.d>0).slice(0,3),...cs.filter(o=>o.d<0).slice(-3).reverse()].map(f).join(', ');
   const tip=r.plan?`In your best plan at about $${r.c}. If he goes elsewhere, the best replacement (${(r.out||[]).join(', ')||'none'}) leaves you ${v.toFixed(1)} roto points lower${cats?'. Categories he carries: '+cats:''}.`
-    :`At about $${r.c} in place of ${(r.out||[]).join(' and ')}${r.fill?` (plus ${r.fill} at $1 in the free slot)`:''}: ${v>=0?'+':'−'}${Math.abs(v).toFixed(1)} expected roto points against your best plan${cats?'. By category: '+cats:''}.`;
+    :`At about $${r.c} in place of ${(r.out||[]).join(', ')}${r.fill?` (the freed slots go to ${r.fill})`:''}: ${v>=0?'+':'−'}${Math.abs(v).toFixed(1)} expected roto points against your best plan${cats?'. By category: '+cats:''}.`;
   return `<td class="rdc ${cls}" data-tip="${tip.replace(/"/g,'&quot;')}">${r.plan?'<span class="rdp">plan</span> ':''}${txt}</td>`; }
 function renderProj(){
   const t=document.getElementById('projTable'); if(!t) return; projChips();
@@ -3390,6 +3390,25 @@ function nbEngine(){
     const filler=dollar.find(z=>!best.ex.has(z.q.name));
     const vecSwap=(outIdx,ins)=>{ const v=full.slice(); for(const i of outIdx) for(let k=0;k<12;k++) v[k]-=R[i].v[k]; for(const z of ins) for(let k=0;k<12;k++) v[k]+=z.v[k]; return v; };
     const scoreOut=(outIdx,ins)=>nbExp(nbCats(vecSwap(outIdx,ins)));
+    // ANY NUMBER OUT (14 Oct 2026, Daniel: "I took Luka and Edwards for the first 2 picks, why is the roto +/- no longer
+    // there?"): with $89 for 11 slots no one or two plan players free $40+, so every expensive player showed "—". Now, when
+    // one-out or two-out cannot pay for him, plan players leave in order of least roto lost per dollar freed (each
+    // replaced by a $1 player) until his price fits; then each $1 slot is upgraded once with the money left over (best
+    // single upgrade from the plan's candidate list), so the leftover money is spent as the plan would spend it.
+    const fills=dollar.filter(z=>!best.ex.has(z.q.name));
+    const order=fills.length?R.map((x,i)=>({i,free:x.cost-1,loss:best.exp-scoreOut([i],[fills[0]])})).filter(o=>o.free>0).sort((a,b)=>a.loss/a.free-b.loss/b.free):[];
+    const maxBid=left-(need-1);
+    // money after k players out: plan's spare + their prices - his price - $1 for each of the k-1 other freed slots
+    const manyOut=y=>{ const S=[]; let money=-1;
+      for(const o of order){ S.push(o.i); money=best.money+S.reduce((a,i)=>a+R[i].cost,0)-y.cost-(S.length-1); if(money>=0) break; }
+      if(!S.length||money<0) return null;
+      const fl=fills.filter(z=>z.q.name!==y.q.name).slice(0,S.length-1); if(fl.length<S.length-1) return null;
+      let ros=R.filter((_,k)=>!S.includes(k)).concat([y],fl), sc=evalR(ros);
+      const used=new Set(ros.map(x=>x.q.name));
+      for(let f=ros.length-fl.length;f<ros.length;f++){ let bz=null, bs=sc;
+        for(const z of cand){ if(used.has(z.q.name)||z.cost>money+1) continue; const t=ros.slice(); t[f]=z; const v=evalR(t); if(v>bs+1e-9){ bs=v; bz=z; } }
+        if(bz){ used.delete(ros[f].q.name); used.add(bz.q.name); money-=bz.cost-1; ros[f]=bz; sc=bs; } }
+      return {o:S,ros,sc}; };
     for(const q of PJ){ if(state.picks[q.name]||q.cap==='KEEPER'||isKeeper(q.name)||!((q.g||0)>0)) continue;
       const px=inPlan.get(q.name); if(px){ rd[q.name]={d:px.loss,c:px.cost,plan:true,cat:px.cat,out:px.inst.map(o=>o.n)}; continue; }
       const rp=roomPaid(q.name), floor=rp.length>=2?Math.min(...rp):0, cost=Math.max(1,Math.round(usualPrice(q)*RI.f),floor);
@@ -3397,12 +3416,15 @@ function nbEngine(){
       for(let i=0;i<R.length;i++) if(best.money+R[i].cost>=cost) tries.push({o:[i],ins:[y],sc:scoreOut([i],[y])});
       if(filler&&filler.q.name!==q.name&&R.length>=2) for(let i=0;i<R.length;i++) for(let j=i+1;j<R.length;j++)
         if(best.money+R[i].cost+R[j].cost>=cost+1) tries.push({o:[i,j],ins:[y,filler],sc:scoreOut([i,j],[y,filler])});
+      if(cost>maxBid){ rd[q.name]={d:null,c:cost,why:`his usual price is above your max bid of $${maxBid}`}; continue; }
       tries.sort((a,b)=>b.sc-a.sc); let pick=null;
-      for(const t of tries.slice(0,8)){ const ros=R.filter((_,k)=>!t.o.includes(k)).concat(t.ins); if(legal(ros)){ pick=t; break; } }
-      if(!pick){ rd[q.name]={d:null,c:cost,why:tries.length?'no roster slot fits him':'costs more than any one or two plan players free up'}; continue; }
-      const C=nbExpCats(nbCats(vecSwap(pick.o,pick.ins)));
+      for(const t of tries.slice(0,8)){ const ros=R.filter((_,k)=>!t.o.includes(k)).concat(t.ins); if(legal(ros)){ pick={o:t.o,ros,sc:t.sc}; break; } }
+      if(!pick){ const m=manyOut(y); if(m&&legal(m.ros)) pick=m; }
+      if(!pick){ rd[q.name]={d:null,c:cost,why:'no legal roster fits him with the money left'}; continue; }
+      const C=nbExpCats(nbCats(vecOf(pick.ros)));
       const cat=NB_CATS.map(k=>({k:LAB[k],d:C[k]-bestC[k]})).filter(o=>Math.abs(o.d)>=0.2).sort((a,b)=>b.d-a.d);
-      rd[q.name]={d:pick.sc-best.exp,c:cost,cat,out:pick.o.map(i=>R[i].q.name),fill:pick.ins.length>1?filler.q.name:null}; } }
+      const outN=pick.o.map(i=>R[i].q.name), keep=new Set(R.map(x=>x.q.name).concat([q.name]));
+      rd[q.name]={d:pick.sc-best.exp,c:cost,cat,out:outN,fill:pick.ros.filter(x=>!keep.has(x.q.name)).map(x=>`${x.q.name} $${x.cost}`).join(', ')||null}; } }
   const res={need,left,mine,plan,exp:best.exp,disc:nbDisc(nbCats(vecOf(best.ros))),spent:left-best.money,RI,stretch:stretch.slice(0,5),rd};   // shown with their sign: a minus means the plan is better, which is worth knowing too
   _nbMemo={key,res}; return res;
 }
