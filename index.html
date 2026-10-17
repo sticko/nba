@@ -3354,7 +3354,9 @@ function pasteParse(text){
     // he is on the block, not sold (his projection and the live bid are not a sale)
     let price=null, onblock=false; for(const t of span){ if(t==='proj'){ onblock=true; break; } const d=t.match(/^\$(\d{1,3})$/); if(d){ price=+d[1]; break; } }
     if(price==null&&!anyDollar&&!onblock){ for(const t of span.slice(0,6)){ if(/^\d{1,3}$/.test(t)&&+t>=1&&+t<=200){ price=+t; break; } } }
-    const mine=!!mt&&(' '+span.join(' ')+' ').includes(' '+mt+' ');
+    // Yahoo's own draft results write "Your Team" for your buys (18 Oct 2026, Daniel during the draft): that is mine too,
+    // with or without a team name typed in the box
+    const sp=' '+span.join(' ')+' ', mine=(!!mt&&sp.includes(' '+mt+' '))||sp.includes(' your team ');
     // a name can appear twice (the "Last:" line, then his row in Results): the line with a price wins
     const prev=out.get(h.n); if(!prev||price!=null||(prev.price==null&&!onblock)) out.set(h.n,{n:h.n,price,mine,onblock:onblock&&!(prev&&prev.price!=null)}); });
   const res=[...out.values()]; res.anyDollar=anyDollar; return res;
