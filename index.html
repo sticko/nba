@@ -1154,7 +1154,7 @@ details.method[open] summary:after{content:'\2212'}
         <div id="nbList"></div>
         <div class="nbhow"><div class="nbhow-t"><span class="nbhow-ic" aria-hidden="true">?</span>How this works</div>
           <p>Updated after every pick. The page builds the best 13-man plan your money still buys: it starts from the kit's Scenarios and your card, then searches thousands of one- and two-player swaps, scoring expected roto in all 9 categories against the simulated rivals.</p>
-          <p>Prices follow the room: if sales run hot or cold, the plan's prices move with them. The top 6 are the plan's biggest buys right now. "Worth +1.3 roto" means your final team scores 1.3 roto points more with him than with the best swap; "replaceable" means that gap is under 0.5. "If you miss him" lists the swaps and how many points each one costs. Everywhere on the page, a + next to a player means he helps your team.</p>
+          <p>Prices follow the room: if sales run hot or cold, the plan's prices move with them. The top 6 are the plan's biggest buys right now. "Worth +1.3 roto" means your final team scores 1.3 roto points more with him than without him, both sides re-planned in full; it is the same Roto +/- the Players table, his call and the what-if show. "Replaceable" means under 0.5, which is inside the search's noise. "If you miss him" lists the best one-for-one swaps. Everywhere on the page, a + next to a player means he helps your team.</p>
           <p>Bid up to the cap, never past it.</p></div>
       </div>
       <div class="cont paste">
@@ -2350,7 +2350,7 @@ function renderVerdict(){
       const dflt=Math.max(1,Math.min(maxAfford, r&&r.c?r.c:(pol.cap||1)));
       setTimeout(()=>vwiWorth(hit.name),20);
       return `<div class="vwi"><div class="vwi-l"><span class="k">Worth to your team</span><span class="v" id="vwiV">…</span>
-          <small id="vwiS">computing his walk-away price for your roster…</small>${rdLine(r)}</div>
+          <small id="vwiS">computing his walk-away price for your roster…</small>${rdLine(r,hit.name)}</div>
         <div class="vwi-r"><label>What if I buy him at $<input type="number" id="vwiP" min="1" max="${maxAfford}" value="${dflt}" onkeydown="if(event.key==='Enter'){whatIf('${esc}');}"></label>
           <button class="chipbtn" onclick="whatIf('${esc}')">Show my lineup</button><div id="vwiOut" class="vwi-out"></div></div></div>`; })()}
     <div class="vrow2">
@@ -2786,8 +2786,42 @@ const PROJTIP={ be:'His walk-away price for YOUR roster: the most you can pay an
 // it opens, the Players table fills it in the background for the 30 best available players by Blend $ plus plan players.
 const _worth=new Map(); let _worthQ=[], _worthBusy=false;
 function draftKeyNW(){ return JSON.stringify(Object.entries(state.picks).filter(([n,s])=>!s.whatif).map(([n,s])=>[n,s.status,s.mine?1:0,s.price])); }
-function liteWith(name,st){ const had=state.picks[name], sv=window.__nbIter, ss=window.__nbSeed; window.__nbSeed=draftKeyNW(); state.picks[name]=st; window.__nbIter=2500; let E;
-  try{ E=nbEngine({lite:true}); } finally { window.__nbIter=sv; window.__nbSeed=ss; if(had) state.picks[name]=had; else delete state.picks[name]; } return E; }
+function liteWith(name,st,also){ const had=state.picks[name], sv=window.__nbIter, ss=window.__nbSeed; window.__nbSeed=draftKeyNW(); window.__nbWarm=[planNow()].concat(also?[also]:[]); state.picks[name]=st; window.__nbIter=2500; let E;
+  try{ E=nbEngine({lite:true}); } finally { window.__nbIter=sv; window.__nbSeed=ss; window.__nbWarm=null; if(had) state.picks[name]=had; else delete state.picks[name]; } return E; }
+// the current best plan's names (the warm start for every what-if run); computed once per real draft state
+let _planNowK=null, _planNow=null;
+function planNow(){ const k=draftKeyNW(); if(k!==_planNowK){ const saved=Object.entries(state.picks).filter(([n,s])=>s.whatif); for(const [n] of saved) delete state.picks[n];
+    try{ _planNow=(nbEngine().plan||[]).map(x=>x.q.name); } finally { for(const [n,s] of saved) state.picks[n]=s; } _planNowK=k; } return _planNow; }
+// ROTO +/- (18 Oct 2026, Daniel: "not consistent. one says +1.3, the other +0.6"): the card, the Players table, the
+// profile and the what-if line now all show this one number: your final team with him at $p minus your final team
+// without him, each a full re-plan (the money is spent again). Both sides start from the current plan, and each also
+// starts from the other side's best roster, so neither side wins by search luck. The old card number swapped him for
+// one player and kept the other 12 fixed, so it never re-spent the money and ran higher (Quickley +1.3 vs +0.6).
+const _rpm=new Map();
+function rotoPM(name,p){ const k=draftKeyNW()+'|'+name+'|'+p; if(_rpm.has(k)) return _rpm.get(k);
+  const G0=liteWith(name,{status:'gone',mine:false,whatif:true});
+  const won=r=>liteWith(name,{status:'won',mine:true,price:p,whatif:true},r.ros.map(x=>x.q.name)), gone=r=>liteWith(name,{status:'gone',mine:false,whatif:true},r.ros.map(x=>x.q.name));
+  // trade rosters until neither side improves (two extra rounds at most)
+  let G=G0, W=won(G0);
+  for(let r=0;r<2;r++){ const g=gone(W); if(!(g.exp>G.exp+1e-9)) break; G=g; const w=won(G); if(!(w.exp>W.exp+1e-9)) break; W=w; }
+  const res={d:W.exp-G.exp,W,G}; _rpm.set(k,res); return res; }
+function rotoPMCached(name,p){ return _rpm.get(draftKeyNW()+'|'+name+'|'+p)||null; }
+// Every Roto +/- on the page is a <span data-rpm-n data-rpm-p data-rpm-k>: it shows "…" until rotoPM has run for that
+// player and price (in the background, about 1.5 s each, cards first), then rpmFill writes the number into every copy.
+const rpmSign=d=>(d>=0.05?'+':d<=-0.05?'−':'')+Math.abs(d).toFixed(1);
+function rpmInner(n,p,k){ const r=rotoPMCached(n,p);
+  if(!r) return k==='card'?'worth <b>…</b> roto':'…';
+  const d=r.d, t=rpmSign(d), c=d>=0.05?'pos':d<=-0.05?'neg':'';
+  if(k==='card') return `worth <b class="${c}">${t} roto</b>${d<0.5?' · replaceable':''}`;
+  if(k==='prof') return `<b class="${d>=0?'up':'dn'}">${t}</b>`;
+  return t; }
+function rpmSpan(n,p,k){ return `<span data-rpm-n="${String(n).replace(/"/g,'&quot;')}" data-rpm-p="${p}" data-rpm-k="${k}">${rpmInner(n,p,k)}</span>`; }
+function rpmFill(){ document.querySelectorAll('[data-rpm-n]').forEach(el=>{ el.innerHTML=rpmInner(el.dataset.rpmN,+el.dataset.rpmP,el.dataset.rpmK); }); }
+let _rpmQ=[], _rpmBusy=false;
+function rpmQueue(pairs){ const k=draftKeyNW(); _rpmQ=_rpmQ.filter(j=>j.k===k);
+  for(const [n,p] of pairs) if(!rotoPMCached(n,p)&&!_rpmQ.some(j=>j.n===n&&j.p===p)) _rpmQ.push({n,p,k}); rpmPump(); }
+function rpmPump(){ if(_rpmBusy) return; const j=_rpmQ.shift(); if(!j) return; _rpmBusy=true;
+  setTimeout(()=>{ try{ if(j.k===draftKeyNW()) rotoPM(j.n,j.p); rpmFill(); } finally { _rpmBusy=false; rpmPump(); } },15); }
 function worthTo(name){ const k=draftKeyNW()+'|'+name; if(_worth.has(k)) return _worth.get(k);
   const ms=myStatus(); if(ms.need<=0||state.picks[name]) return null; const maxB=ms.left-(ms.need-1); if(maxB<1) return null;
   const gone=liteWith(name,{status:'gone',mine:false,whatif:true}).exp, at=p=>liteWith(name,{status:'won',mine:true,price:p,whatif:true}).exp;
@@ -2823,32 +2857,37 @@ function catChips(list){ return (list||[]).map(o=>`<span class="${o.d>0?'up':'dn
 // a player name in the call's lists opens that player's call (18 Oct 2026, Daniel: "if I click the player name here,
 // it goes to that player profile")
 function plink(n){ const e=String(n).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return `<a href="#" class="plink" onclick="return openCall('${e}')"><b>${n}</b></a>`; }
-function rdLine(r){ if(!r) return '';
+function rdLine(r,name){ if(!r) return '';
   if(r.d==null) return `<div class="vwi-rd">Roto +/-: — <span>(${r.why})</span></div>`;
   const cs=r.cat||[], pick=r.plan?cs.slice(0,5):[...cs.filter(o=>o.d>0).slice(0,3),...cs.filter(o=>o.d<0).slice(-3).reverse()];
-  return `<div class="vwi-rd">${r.plan?`<b class="up">In your plan</b> at ~$${r.c}: worth <b>+${r.d.toFixed(1)}</b> roto over the best replacement (${(r.out||[]).map(plink).join(', ')||'none'})`
-    :`Roto +/- at his usual ~$${r.c}: <b class="${r.d>=0?'up':'dn'}">${r.d>=0?'+':'−'}${Math.abs(r.d).toFixed(1)}</b> vs your best plan, in place of ${(r.out||[]).map(plink).join(', ')}`}
+  rpmQueue([[name,r.c]]);
+  return `<div class="vwi-rd">${r.plan?`<b class="up">In your plan</b> at ~$${r.c}: Roto +/- ${rpmSpan(name,r.c,'prof')} vs letting him go (if you miss him, the plan uses ${(r.out||[]).map(plink).join(', ')||'the money elsewhere'})`
+    :`Roto +/- at his usual ~$${r.c}: ${rpmSpan(name,r.c,'prof')} vs letting him go`}
     ${pick.length?`<div class="vwi-cats">${r.plan?'Categories he carries: ':'Your categories: '}${catChips(pick)}</div>`:''}</div>`; }
 function whatIf(name){ const inp=document.getElementById('vwiP'), out=document.getElementById('vwiOut'); if(!inp||!out) return;
   const p=Math.round(+inp.value||0), ms=myStatus(), maxB=ms.left-Math.max(0,ms.need-1);
   if(!(p>=1)){ out.innerHTML='Type a price of $1 or more.'; return; } if(p>maxB){ out.innerHTML=`$${p} is above your max bid of $${maxB}.`; return; }
-  const E0=liteWith(name,{status:'gone',mine:false,whatif:true}), E1=liteWith(name,{status:'won',mine:true,price:p,whatif:true});
-  const d=E1.exp-E0.exp, lst=E1.ros.slice().sort((a,b)=>b.cost-a.cost);
+  const R=rotoPM(name,p), E0=R.G, E1=R.W; rpmFill();
+  const d=R.d, lst=E1.ros.slice().sort((a,b)=>b.cost-a.cost);
   const tv=E=>(E.mine||[]).map(q=>({v:nbVec(q)})).concat(E.ros).reduce((acc,x)=>acc.map((y,i)=>y+x.v[i]),new Array(12).fill(0));
   const LABW={PTS:'PTS','3PTM':'3PM',REB:'REB',AST:'AST',ST:'STL',BLK:'BLK','FG%':'FG%','FT%':'FT%',TO:'TO'};
   const c1=nbExpCats(nbCats(tv(E1))), c0=nbExpCats(nbCats(tv(E0)));
   const cd=NB_CATS.map(k=>({k:LABW[k],d:c1[k]-c0[k]})).filter(o=>Math.abs(o.d)>=0.2).sort((a,b)=>b.d-a.d);
-  out.innerHTML=`<div class="vwi-d ${Math.abs(d)<0.5?'':(d>=0?'good':'bad')}">Roto +/- at $${p}: ${Math.abs(d)<0.5?'about even':(d>=0?'+':'−')+Math.abs(d).toFixed(1)} vs letting him go${Math.abs(d)<0.5?' (within ±0.5, the search\'s noise)':''} <span>(${E1.exp.toFixed(0)} vs ${E0.exp.toFixed(0)} expected for your final team)</span></div>
+  out.innerHTML=`<div class="vwi-d ${Math.abs(d)<0.5?'':(d>=0?'good':'bad')}">Roto +/- at $${p}: ${rpmSign(d)} vs letting him go${Math.abs(d)<0.5?' (about even: ±0.5 is the search\'s noise)':''} <span>(${E1.exp.toFixed(0)} vs ${E0.exp.toFixed(0)} expected for your final team)</span></div>
     ${cd.length?`<div class="vwi-cats">Your final categories vs letting him go: ${catChips(cd)}</div>`:''}
     <div class="vwi-p">Then the plan for your other ${E1.need} slot${E1.need===1?'':'s'} ($${E1.left} left, uses $${E1.spent}):</div>
     <div class="vwi-list">${lst.map(x=>`<span>${plink(x.q.name)} $${x.cost}</span>`).join('')||'<span>roster full</span>'}</div>`; }
-function rdCell(r){ if(!r) return '<td>—</td>';
+function rdCell(r,name){ if(!r) return '<td>—</td>';
   if(r.d==null) return `<td class="rdc" data-tip="${r.why} (usual price $${r.c})">—</td>`;
-  const v=r.d, txt=(v>=0.05?'+':v<=-0.05?'−':'')+Math.abs(v).toFixed(1), cls=r.plan?'rdplan':v>=-0.5?'rdok':v<=-3?'rdbad':'';
+  // the full re-plan number when it is ready (always for plan players, who are queued with the cards; other players once
+  // their call has been opened); otherwise the quick swap estimate, marked "~"
+  const R=rotoPMCached(name,r.c), exact=!!R||r.plan, v=R?R.d:r.d, cls=r.plan?'rdplan':v>=-0.5?'rdok':v<=-3?'rdbad':'';
+  const txt=r.plan?rpmSpan(name,r.c,'cell'):(R?'':'~')+rpmSign(v);
   const cs=r.cat||[], f=o=>`${o.k} ${o.d>0?'+':'−'}${Math.abs(o.d).toFixed(1)}`;
   const cats=r.plan?cs.slice(0,4).map(f).join(', '):[...cs.filter(o=>o.d>0).slice(0,3),...cs.filter(o=>o.d<0).slice(-3).reverse()].map(f).join(', ');
-  const tip=r.plan?`In your best plan at about $${r.c}. If he goes elsewhere, the best replacement (${(r.out||[]).join(', ')||'none'}) leaves you ${v.toFixed(1)} roto points lower${cats?'. Categories he carries: '+cats:''}.`
-    :`At about $${r.c} in place of ${(r.out||[]).join(', ')}${r.fill?` (the freed slots go to ${r.fill})`:''}: ${v>=0?'+':'−'}${Math.abs(v).toFixed(1)} expected roto points against your best plan${cats?'. By category: '+cats:''}.`;
+  const tip=(r.plan?`In your best plan at about $${r.c}. `:'')+(exact?`Roto +/- at $${r.c}: your final team with him minus without him, both re-planned in full (±0.5 is search noise).`
+      :`Quick estimate: him at about $${r.c} in place of ${(r.out||[]).join(', ')}${r.fill?` (the freed slots go to ${r.fill})`:''}, the rest of the plan kept. Open his call for the full re-plan number.`)
+    +(cats?(r.plan?' Categories he carries: ':' By category: ')+cats+'.':'');
   return `<td class="rdc ${cls}" data-tip="${tip.replace(/"/g,'&quot;')}">${r.plan?'<span class="rdp">plan</span> ':''}${txt}</td>`; }
 function renderProj(){
   const t=document.getElementById('projTable'); if(!t) return; projChips();
@@ -2876,7 +2915,7 @@ function renderProj(){
   // so this column and the call box can never show two numbers; off the board it is the projection file's Cap.
   rows.forEach(p=>{ if(p.cap==='KEEPER'){ p.capNow=-2; p.edgeLive=null; return; } const bp=byName[p.name]; p.capNow=bp?(policyFor(bp).cap||0):(typeof p.cap==='number'?p.cap:0);
     p.edgeLive=Math.round((p.blend||0)-Math.max(+p.hi||0, p.capNow)); });
-  const RD=(nbEngine().rd)||{}; rows.forEach(p=>{ const r=RD[p.name]; p.rdv=r&&r.d!=null?r.d:null; const w=worthCached(p.name); p.bev=w?w.v:null; });
+  const RD=(nbEngine().rd)||{}; rows.forEach(p=>{ const r=RD[p.name]; const R=r&&r.d!=null?rotoPMCached(p.name,r.c):null; p.rdv=R?R.d:(r&&r.d!=null?r.d:null); const w=worthCached(p.name); p.bev=w?w.v:null; });
   // "Worth to you" for every row on screen (18 Oct 2026, Daniel: "put worth to you in the column of player list as well,
   // so it's easy to see"): queued in the table's own order, so the top of what you are looking at fills first.
   { const planN=(nbEngine().plan||[]).map(x=>x.q.name);
@@ -2909,7 +2948,7 @@ function renderProj(){
     const cells={
       name:`<td class="l nm">${faceHTML(p.name)}<a href="#" class="pnm" onclick="return openCall('${esc}')">${p.name}</a>${gemTag(p.name)}${p.keep?` <span class="src">${p.keep}</span>`:''}</td>`,
       __st:`<td class="l act">${act}</td>`, cap:`<td>${capC}</td>`, lo:`<td>${p.lo!=null?'$'+p.lo+'-'+p.hi:'—'}</td>`,
-      blend:`<td>${p.blend?'$'+p.blend:'—'}</td>`, edge:`<td>${edge}</td>`, rd:rdCell(RD[p.name]), be:beCell(p.name,worthCached(p.name)), y:`<td>${p.y?'$'+p.y:'—'}</td>`,
+      blend:`<td>${p.blend?'$'+p.blend:'—'}</td>`, edge:`<td>${edge}</td>`, rd:rdCell(RD[p.name],p.name), be:beCell(p.name,worthCached(p.name)), y:`<td>${p.y?'$'+p.y:'—'}</td>`,
       seat:`<td class="l">${seatOf[p.name]?seatPill(seatOf[p.name],true)+(planBudget[p.name]?`<span class="planb" title="what the card budgets for this seat">$${planBudget[p.name]}</span>`:''):''}</td>`,
       tm:`<td class="l">${p.tm||''}</td>`, ypos:`<td class="l">${p.ypos||p.grp||''}</td>`, g:`<td>${p.g??''}</td>`, min:`<td>${p.min??''}</td>`,
       p:`<td>${p.p??''}</td>`, tp:`<td>${p.tp??''}</td>`, r:`<td>${p.r??''}</td>`, a:`<td>${p.a??''}</td>`, s:`<td>${p.s??''}</td>`, b:`<td>${p.b??''}</td>`, to:`<td>${p.to??''}</td>`,
@@ -3595,6 +3634,11 @@ function nbEngine(opt){ const lite=!!(opt&&opt.lite);   // lite: just the best p
     P.exp=cur; return P; };
   const seedOf=names=>names.map(n=>byN.get(n)).filter(Boolean);
   const seeds=[[]].concat((SCEN.scenarios||[]).filter(sc=>['cheap','normal','expensive'].includes(sc.id)).map(sc=>seedOf(sc.players.map(p=>p.name))), [seedOf(PLAN.map(r=>r.primary.name))]);
+  // WARM START (18 Oct 2026, Daniel: the card said Quickley +1.3, the what-if at $9 said +0.6): a what-if run also starts
+  // from the current best plan (window.__nbWarm, set by liteWith). From scratch, 2,500 annealing steps landed up to 0.6
+  // roto off the real plan, as large as the numbers being compared; from the current plan, "with him" and "without
+  // him" both start where you are now, so they differ by him and not by search luck.
+  if(lite&&window.__nbWarm){ const dN=new Map(dollar.map(x=>[x.q.name,x])); for(const w of window.__nbWarm) seeds.push(w.map(n=>byN.get(n)||dN.get(n)).filter(Boolean)); }
   let best=null; for(const sd of seeds){ const P=polish(fillFrom(sd),2); if(!best||P.exp>best.exp) best=P; }
   // simulated annealing: single and pair swaps, seeded by the draft state so the same state gives the same plan
   // a what-if run seeds the search from the REAL draft state, so "mine at $p" and "gone" differ only by him, not by luck
@@ -3711,6 +3755,7 @@ function renderNextBest(){
   document.getElementById('nbN').innerHTML=`Best plan ≈ <b>${E.disc.toFixed(0)}</b> of 144 roto (≈${E.exp.toFixed(0)} with normal luck) · uses $${E.spent} of $${E.left}${ri}`;
   const weak=new Set(weakCats().map(c=>c.label));
   const byCost=E.plan.slice().sort((a,b)=>(b.cost-a.cost)||(b.loss-a.loss)); const top=byCost.slice(0,6), rest=byCost.slice(6);   // six cards since 12 Oct 2026 (Daniel: "recommend 6, not 3")
+  rpmQueue(byCost.map(x=>[x.q.name,x.cost]));   // Roto +/- for the whole plan in the background, the six cards first
   top.forEach(x=>{ const bp=byName[x.q.name]; if(bp){ const pol=policyFor(bp); x.now=pol.cap||0; x.cap=pol.shaved&&pol.fullCap?pol.fullCap:x.now; } });
   // Card layout (11 Oct 2026, the designer's mock): rank tab, round face with the team under it, name and a card-target
   // chip, then one fact per line (position · team · plan price / odds and "worth +x roto" / the room's real prices / strong
@@ -3723,8 +3768,8 @@ function renderNextBest(){
     // ONE SIGN RULE (18 Oct 2026, Daniel: "thats cofusing, fix it"): the card said "miss him: −1.3" while the Players
     // table and the profile showed the same number as +1.3. A signed roto number next to a player now always means
     // what HE does for your final team, plus = good: "worth +1.3 roto" over the best swap. The swaps say "1.3 less".
-    const sw=x.alts&&x.alts.length?x.alts[0]:null, lossTip=`Your final team with him vs with the best swap${sw?` (${sw.n} $${sw.c})`:''}. Plus = good: he helps your team.`;
-    const lossTxt=`<span style="white-space:nowrap" title="${lossTip.replace(/"/g,'&quot;')}">worth <b class="${x.loss>=0.05?'pos':''}">${x.loss>=0.05?'+':x.loss<=-0.05?'−':''}${Math.abs(x.loss).toFixed(1)} roto</b>${x.loss<0.5?' · replaceable':''}</span>`;
+    // Since the same day the number is rotoPM (full re-plan both sides), the same one the table, the call and the what-if show.
+    const lossTxt=`<span style="white-space:nowrap" title="Roto +/- at $${x.cost}: your final team with him minus without him, both re-planned in full. Plus = good. Under 0.5 = replaceable (±0.5 is search noise).">${rpmSpan(q.name,x.cost,'card')}</span>`;
     const r=paid(q.name), warn=r.some(v=>v>x.cost)?`<span class="nbl warn">⚠ Room paid $${r.join(' / $')}</span>`:'';
     const capHTML=x.cap>1?(x.now!=null&&x.now<x.cap?`<span class="nbcap" title="$${x.cap} once his primary is gone"><span>Cap</span> <b>$${x.now}</b><small> →$${x.cap}</small></span>`:`<span class="nbcap"><span>Cap</span> <b>$${x.cap}</b></span>`):`<span class="nbcap" title="only at $1, end filler"><b>$1</b><small> only</small></span>`;
     // COMPACT CARD (12 Oct 2026, Daniel: "too tall, make it 30% shorter"): cap and Won / Gone sit on the name row, so
@@ -3734,7 +3779,7 @@ function renderNextBest(){
           <div class="nbright">${capHTML}<span class="nbbtns"><button class="btn act-won" onclick="markWon('${nmJ}',true)">Won</button><button class="btn act-gone" onclick="markGone('${nmJ}')">Gone</button></span></div></div>
         <span class="nbl">${q.ypos||''} · Plan $${x.cost}${o?` · ${o.p}% at cap`:''} · ${lossTxt}${x.ranks&&x.ranks.length?` <span class="dim">· left: ${x.ranks.slice(0,2).map(r=>`#${r.r} ${r.k}`).join(', ')}</span>`:''}</span>${warn}
         ${x.inst&&x.inst.length&&x.cat&&x.cat.length?`<span class="nbl why"><span class="dim">vs ${x.inst.map(y=>`${y.n} $${y.c}`).join(' + ')}:</span> ${x.cat.slice(0,4).map(c=>`<span class="${c.d>0?'pos':'neg'}">${c.d>0?'+':'−'}${Math.abs(c.d).toFixed(1)} ${c.k}</span>`).join(' · ')}</span>`:''}
-        ${x.alts&&x.alts.length?`<span class="nbl dim">If you miss him: ${x.alts.map(a=>`<a href="#" onclick="return openCall('${a.n.replace(/'/g,"\\'")}')">${a.n}</a> $${a.c} (${Math.abs(a.d)<0.05?'same':Math.abs(a.d).toFixed(1)+(a.d<0?' less':' more')})`).join(' · ')}</span>`:''}
+        ${x.alts&&x.alts.length?`<span class="nbl dim">If you miss him: ${x.alts.map(a=>`<a href="#" onclick="return openCall('${a.n.replace(/'/g,"\\'")}')">${a.n}</a> $${a.c}`).join(' · ')}</span>`:''}
       </div></div>`; }).join('')
     +`<div class="nbresth"><span>Stretch targets</span><span class="nbrestn">not in the plan · 40%+ to win at your cap · + beats the plan</span></div>
       ${E.stretch&&E.stretch.length?`<div class="nbstretch">${E.stretch.map(x=>`<div><a href="#" onclick="return openCall('${x.q.name.replace(/'/g,"\\'")}')">${x.q.name}</a>${gemTag(x.q.name)}
