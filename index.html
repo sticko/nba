@@ -117,6 +117,7 @@ button{font-family:inherit;cursor:pointer}
 .vchk{font-weight:700;font-size:14px;padding:2px 10px;border-radius:999px;border:1px solid currentColor}
 .vchk.over{color:var(--danger);background:var(--danger-soft)} .vchk.under{color:var(--good);background:var(--good-soft)} .vchk.fair{color:var(--text-dim);background:var(--surface)}
 .vchk-s{font-size:12px;color:var(--text-faint)}
+.dlg-rpm{margin-top:6px;color:var(--text-dim)} .dlg-rpm:empty{display:none}
 .buy-odds,.buy-hint{display:flex;gap:14px;align-items:center;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);padding:12px 16px;margin-top:12px}
 .buy-hint{border:0;background:none;padding:4px 2px;margin-top:6px;font-size:12.5px;color:var(--text-faint)} .buy-hint b{color:var(--text);font-weight:600}
 .bo-ic{width:46px;height:46px;flex:0 0 auto;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--gold-soft);font-size:22px}
@@ -1822,7 +1823,7 @@ function markWon(name, mine){
     'Price you paid for '+name,
     `<div class="buy-head">${faceBig(name)}<div class="bh-t"><div class="bh-k">Price you paid for</div><div class="bh-n">${name}</div><div class="bh-m">${q.tm||(p&&p.team)||''} · ${q.ypos||(p&&p.pos)||''}</div>${draftLine(name)}</div>
        <button class="bh-x" type="button" aria-label="Close" onclick="document.getElementById('modalCancel').click()">✕</button></div>
-     <div class="buy-price"><div class="bp-in"><label for="modalInput">Your purchase price</label><div class="bp-box"><span>$</span><input id="modalInput" type="number" step="1" min="1" max="${maxBid}" value="${guess}" oninput="updateOdds('${nmJ}')" /></div><div class="valcheck" id="valCheck">${valueCheck(name, guess)}</div><div class="modal-err" id="modalErr"></div></div>
+     <div class="buy-price"><div class="bp-in"><label for="modalInput">Your purchase price</label><div class="bp-box"><span>$</span><input id="modalInput" type="number" step="1" min="1" max="${maxBid}" value="${guess}" oninput="updateOdds('${nmJ}')" /></div><div class="valcheck" id="valCheck">${valueCheck(name, guess)}</div><div class="vwi-d dlg-rpm" id="dlgRpm"></div><div class="modal-err" id="modalErr"></div></div>
        <div class="bp-rng"><span class="k">Room's price range</span>${(()=>{ const pb=roomBand(name,.1,.9); return pb?`<b>$${pb.a} – $${pb.b}</b><span class="s">8 in 10 of 2,000 simulated drafts${p&&p.payLo!=null?` · usually $${p.payLo}-${p.payHi}`:''}${wo&&wo.hi>pb.b?` · once as high as $${wo.hi}`:''}</span>`:'<b>—</b><span class="s">no simulated price</span>'; })()}</div></div>
      <div class="buy-odds"><span class="bo-ic" aria-hidden="true">🏆</span><div class="modal-odds" id="modalOdds">${oddsLine(name, guess)}</div></div>
      ${priceFacts(name)}
@@ -1841,6 +1842,7 @@ function markWon(name, mine){
     },
     'buy'
   );
+  dlgRpm(name);
 }
 
 // The numbers to re-check before confirming a buy: walk-away, value against cost, what Yahoo says, and what this room
@@ -1871,7 +1873,18 @@ function valueCheck(name, v){ const q=pjOf(name); if(!q||!(v>=1)) return '';
   const b=q.blend||0, d=v-b;
   const [cls,txt]= Math.abs(d)<=1 ? ['fair','Fair value'] : d>0 ? ['over',`Overvalued by $${d}`] : ['under',`Undervalued by $${-d}`];
   return `<span class="vchk ${cls}">${txt}</span><span class="vchk-s">his value (Blend $) is $${b}</span>`; }
-function updateOdds(name){
+// ROTO +/- IN THE PRICE DIALOG (18 Oct 2026, Daniel: "roto +/- simple version ... while i enter the number. Make sure
+// consistent with player profile page"): the call's what-if headline, the same rotoPM number and words. It runs 400 ms
+// after the typing stops (a re-plan blocks the page for about a second); a price already computed shows at once.
+let _dlgRpmT=null;
+function dlgRpm(name){ const el=document.getElementById('dlgRpm'), inp=document.getElementById('modalInput'); if(!el||!inp) return;
+  clearTimeout(_dlgRpmT); const v=Number(String(inp.value).trim()), ms=myStatus(), maxB=ms.left-Math.max(0,ms.need-1);
+  if(!(Number.isInteger(v)&&v>=1&&v<=maxB)||state.picks[name]){ el.className='vwi-d dlg-rpm'; el.textContent=''; return; }
+  const show=r=>{ el.className='vwi-d dlg-rpm '+rpmCls(r.d); el.textContent=rpmHead(v,r.d); };
+  const c=rotoPMCached(name,v); if(c){ show(c); return; }
+  el.className='vwi-d dlg-rpm'; el.textContent=`Roto +/- at $${v}: …`;
+  _dlgRpmT=setTimeout(()=>{ if(String(inp.value).trim()!==String(v)||!inp.isConnected) return; show(rotoPM(name,v)); rpmFill(); },400); }
+function updateOdds(name){ dlgRpm(name);
   const el=document.getElementById('modalOdds'); if(!el) return;
   const v=Number(String(document.getElementById('modalInput').value).trim());
   const vc=document.getElementById('valCheck'); if(vc) vc.innerHTML=(Number.isInteger(v)&&v>=1)?valueCheck(name,v):'';
@@ -2812,9 +2825,10 @@ function planNow(){ const k=draftKeyNW(); if(k!==_planNowK){ const saved=Object.
 // without him, each a full re-plan (the money is spent again). Both sides start from the current plan, and each also
 // starts from the other side's best roster, so neither side wins by search luck. The old card number swapped him for
 // one player and kept the other 12 fixed, so it never re-spent the money and ran higher (Quickley +1.3 vs +0.6).
-const _rpm=new Map();
+const _rpm=new Map(), _rpmG0=new Map();
 function rotoPM(name,p){ const k=draftKeyNW()+'|'+name+'|'+p; if(_rpm.has(k)) return _rpm.get(k);
-  const G0=liteWith(name,{status:'gone',mine:false,whatif:true});
+  // "without him" does not depend on the price: one run per player and draft state, reused for every price typed
+  const gk=draftKeyNW()+'|'+name; let G0=_rpmG0.get(gk); if(!G0){ G0=liteWith(name,{status:'gone',mine:false,whatif:true}); _rpmG0.set(gk,G0); }
   const won=r=>liteWith(name,{status:'won',mine:true,price:p,whatif:true},r.ros.map(x=>x.q.name)), gone=r=>liteWith(name,{status:'gone',mine:false,whatif:true},r.ros.map(x=>x.q.name));
   // trade rosters until neither side improves (two extra rounds at most)
   let G=G0, W=won(G0);
@@ -2824,6 +2838,9 @@ function rotoPMCached(name,p){ return _rpm.get(draftKeyNW()+'|'+name+'|'+p)||nul
 // Every Roto +/- on the page is a <span data-rpm-n data-rpm-p data-rpm-k>: it shows "…" until rotoPM has run for that
 // player and price (in the background, about 1.5 s each, cards first), then rpmFill writes the number into every copy.
 const rpmSign=d=>(d>=0.05?'+':d<=-0.05?'−':'')+Math.abs(d).toFixed(1);
+// the what-if headline, word for word the same in the call and in the price dialog
+const rpmCls=d=>Math.abs(d)<0.5?'':(d>=0?'good':'bad');
+const rpmHead=(p,d)=>`Roto +/- at $${p}: ${rpmSign(d)} vs letting him go${Math.abs(d)<0.5?' (about even: ±0.5 is the search\'s noise)':''}`;
 function rpmInner(n,p,k){ const r=rotoPMCached(n,p);
   if(!r) return k==='card'?'worth <b>…</b> roto':'…';
   const d=r.d, t=rpmSign(d), c=d>=0.05?'pos':d<=-0.05?'neg':'';
@@ -2888,7 +2905,7 @@ function whatIf(name){ const inp=document.getElementById('vwiP'), out=document.g
   const LABW={PTS:'PTS','3PTM':'3PM',REB:'REB',AST:'AST',ST:'STL',BLK:'BLK','FG%':'FG%','FT%':'FT%',TO:'TO'};
   const c1=nbExpCats(nbCats(tv(E1))), c0=nbExpCats(nbCats(tv(E0)));
   const cd=NB_CATS.map(k=>({k:LABW[k],d:c1[k]-c0[k]})).filter(o=>Math.abs(o.d)>=0.2).sort((a,b)=>b.d-a.d);
-  out.innerHTML=`<div class="vwi-d ${Math.abs(d)<0.5?'':(d>=0?'good':'bad')}">Roto +/- at $${p}: ${rpmSign(d)} vs letting him go${Math.abs(d)<0.5?' (about even: ±0.5 is the search\'s noise)':''} <span>(${E1.exp.toFixed(0)} vs ${E0.exp.toFixed(0)} expected for your final team)</span></div>
+  out.innerHTML=`<div class="vwi-d ${rpmCls(d)}">${rpmHead(p,d)} <span>(${E1.exp.toFixed(0)} vs ${E0.exp.toFixed(0)} expected for your final team)</span></div>
     ${cd.length?`<div class="vwi-cats">Your final categories vs letting him go: ${catChips(cd)}</div>`:''}
     <div class="vwi-p">Then the plan for your other ${E1.need} slot${E1.need===1?'':'s'} ($${E1.left} left, uses $${E1.spent}):</div>
     <div class="vwi-list">${lst.map(x=>`<span>${plink(x.q.name)} $${x.cost}</span>`).join('')||'<span>roster full</span>'}</div>`; }
