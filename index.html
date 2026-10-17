@@ -803,6 +803,13 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .sea-t td{padding:5px 8px;border-bottom:1px solid var(--line);color:var(--text-dim);vertical-align:top} .sea-t td.n{font-variant-numeric:tabular-nums;white-space:nowrap} .sea-t td b{color:var(--text)}
 .sea-t tr.out td{opacity:.55} .sea-t .up{color:var(--good);font-weight:700} .sea-t .dn{color:var(--danger);font-weight:700} .sea-t .news{max-width:420px;font-size:11.5px}
 .sea-t .risk{font-weight:700} .sea-t .risk.hi{color:var(--danger)}
+.vwi{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);padding:10px 12px;margin-top:10px}
+.vwi-l{display:flex;flex-direction:column;min-width:170px} .vwi-l .k{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint)}
+.vwi-l .v{font-size:22px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums} .vwi-l .v.good{color:var(--good)} .vwi-l .v.bad{color:var(--text-faint)} .vwi-l small{font-size:11.5px;color:var(--text-dim)}
+.vwi-r{flex:1;min-width:260px;font-size:12.5px;color:var(--text-dim)} .vwi-r label{display:inline-flex;align-items:center;gap:4px;margin-right:8px}
+.vwi-r input{width:64px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text);font-variant-numeric:tabular-nums}
+.vwi-out{margin-top:8px} .vwi-d{font-weight:700;font-size:14px} .vwi-d.good{color:var(--good)} .vwi-d.bad{color:var(--danger)} .vwi-d span{font-weight:400;font-size:11.5px;color:var(--text-faint)}
+.vwi-p{margin-top:4px;font-size:12px} .vwi-list{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-size:12px} .vwi-list b{color:var(--text)}
 .mgr-sumn{font-size:11.5px;color:var(--text-faint);margin-top:6px}
 .mgr-chs{display:flex;flex-wrap:wrap;gap:4px}
 .mgr-ch{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;background:var(--surface)} .mgr-ch b{color:var(--text)}
@@ -2301,6 +2308,14 @@ function renderVerdict(){
         + t('∑','Y! Avg$',ya!=null?`$${(+ya).toFixed(0)}`:'—','other Yahoo leagues paid')
         + t('⌂','Room pays',hit.payLo!=null?`$${hit.payLo} – ${hit.payHi}`:'—','middle half, 2,000 sim drafts')
         + `</div>`; })()}
+    ${(()=>{ if(stMine||hit.keeper) return ''; const st0=state.picks[hit.name]; if(st0&&st0.status==='gone') return ''; let E; try{ E=nbEngine(); }catch(e){ return ''; } if(!E||E.need<=0) return '';
+      const r=(E.rd||{})[hit.name]; const esc=hit.name.replace(/'/g,"\\'");
+      const dflt=Math.max(1,Math.min(maxAfford, r&&r.c?r.c:(pol.cap||1)));
+      setTimeout(()=>vwiWorth(hit.name),20);
+      return `<div class="vwi"><div class="vwi-l"><span class="k">Worth to your team</span><span class="v" id="vwiV">…</span>
+          <small id="vwiS">computing his walk-away price for your roster…</small></div>
+        <div class="vwi-r"><label>What if I buy him at $<input type="number" id="vwiP" min="1" max="${maxAfford}" value="${dflt}" onkeydown="if(event.key==='Enter'){whatIf('${esc}');}"></label>
+          <button class="chipbtn" onclick="whatIf('${esc}')">Show my lineup</button><div id="vwiOut" class="vwi-out"></div></div></div>`; })()}
     <div class="vrow2">
       <div class="vcard"><h3>Season history</h3><table class="vhist"><tr><th>Season</th><th>ALMOC paid</th><th>Final rank</th></tr>
         ${(HIST5[hit.name]||[]).map(([yr,pr,mg,rk,kept])=>`<tr><td class="yr">${yr}</td><td>${kept?'<small>kept by '+mg+'</small>':(pr!=null?`<b>$${pr}</b> <small>${mg}</small>`:'<small>not bought</small>')}</td><td>${rk!=null?'#'+rk:'<small>did not play</small>'}</td></tr>`).join('')||'<tr><td colspan="3"><small>No ALMOC or season history.</small></td></tr>'}</table></div>
@@ -2704,13 +2719,13 @@ function projSortBy(c){ if(projSort.col===c) projSort.dir*=-1; else projSort={co
 function projMore(){ projLimit+=250; renderProj(); }
 // Column order (10 Oct 2026): what you decide and log with comes first, so nothing needs a sideways scroll during the
 // draft — player, won/gone, live cap, room price, value — then the stat line, then the history and research.
-const PROJCOLS=[['name','Player','l'],['__st','Log','l'],['cap','Cap'],['lo','Pay ~'],['blend','Blend $'],['edge','Edge'],['rd','Roto +/-'],['y','Y! Proj$'],['ya','Y! Avg$'],['seat','My seat','l'],
+const PROJCOLS=[['name','Player','l'],['__st','Log','l'],['cap','Cap'],['lo','Pay ~'],['blend','Blend $'],['edge','Edge'],['rd','Roto +/-'],['be','Worth to you'],['y','Y! Proj$'],['ya','Y! Avg$'],['seat','My seat','l'],
   ['tm','Tm','l'],['ypos','Pos','l'],['g','G'],['min','Min'],['p','Pts'],['tp','3s'],['r','Reb'],['a','Ast'],['s','Stl'],['b','Blk'],['to','TO'],['fg','FG%'],['ft','FT%'],
   ['punt','Punt $'],['vrng','Range $'],['a24','ALMOC 24'],['a25','ALMOC 25'],['lrt','25-26 tot'],['lr','25-26 pg'],['nwn','Press'],['pj','Jump'],['age','Age'],['rk','#'],['lsrc','Src','l']];
 // Column tooltips. The two rank columns are the reason this exists: roto scores season TOTALS, and for a
 // player who stayed healthy the per-game rank is much worse than the totals rank (Buzelis is #42 on totals
 // and #74 per game). Printing one bare number invited the reader to take it for the other.
-const PROJTIP={ rd:'What he does for YOUR team: expected roto points of your final roster if you buy him at his usual price, compared with your current best plan (the one behind Best next buys). Plus = the plan wants him (the number is how much better he is than the best replacement). Minus = buying him costs that many points, because the money or the roster slot does more elsewhere. Changes after every pick. Our projections against the simulated room; the Cap still says what to pay. Hover a number for the categories.', age:'His age on 1 February 2027, in years.', p:'Points per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', tp:'Threes made per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', r:'Rebounds per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', a:'Assists per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', s:'Steals per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', b:'Blocks per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', to:'Turnovers per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these. This league punts turnovers, so a high number here is not automatically a problem.', fg:'Field-goal percentage — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', ft:'Free-throw percentage — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.',rk:'Our 2026-27 rank by Punt $: 8-cat value with turnovers ignored, on projected SEASON TOTALS.',
+const PROJTIP={ be:'His walk-away price for YOUR roster: the most you can pay and still end with a better final team than if he goes to someone else (both sides re-planned in full). Green = above what the room usually pays: a buy at the usual price. Fills in for the 30 best available players and your plan players (… = still computing); open a call for anyone else. Changes after every pick. Our projections against the simulated room.', rd:'What he does for YOUR team: expected roto points of your final roster if you buy him at his usual price, compared with your current best plan (the one behind Best next buys). Plus = the plan wants him (the number is how much better he is than the best replacement). Minus = buying him costs that many points, because the money or the roster slot does more elsewhere. Changes after every pick. Our projections against the simulated room; the Cap still says what to pay. Hover a number for the categories.', age:'His age on 1 February 2027, in years.', p:'Points per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', tp:'Threes made per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', r:'Rebounds per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', a:'Assists per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', s:'Steals per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', b:'Blocks per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', to:'Turnovers per game — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these. This league punts turnovers, so a high number here is not automatically a problem.', fg:'Field-goal percentage — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.', ft:'Free-throw percentage — OUR 2026-27 PROJECTION, per game — not last season. September research minutes times a 3-season per-36 blend with age curves, hand-checked against team news. Last season is the two rank columns to the right (\'25-26 tot\' and \'25-26 pg\'), never these.',rk:'Our 2026-27 rank by Punt $: 8-cat value with turnovers ignored, on projected SEASON TOTALS.',
  y:"Y! Proj$: Yahoo's pre-draft dollar value for your league (League Value; the export's Proj Salary is the same number).", ya:'What other Yahoo leagues actually PAID for him, averaged — Yahoo\'s own receipt next to its own asking price. READ IT ONLY AT THE TOP. Yahoo averages over every league, including the ones where he went undrafted and counted as about $0, so the number only means market price for players drafted nearly everywhere: above a $40 list it runs about 1.1x the list, $20-40 about 0.7x, but under $20 it collapses to about 0.2x and is measuring how often he goes UNDRAFTED, not what he costs. Desmond Bane lists at $23 and shows $2. Only 193 of 677 players have one at all; a dash means Yahoo published none.',
  punt:'Our engine\'s value in dollars, 8-cat with turnovers ignored, on a 16-team $200 scale.',
  rep:'What his REAL 2025-26 season would be worth on the same scale as Punt $: the value if he only repeats last season. Read it next to Punt $ — the gap is what the projection expects to change. Blank: no 2025-26 NBA season.',
@@ -2725,6 +2740,53 @@ const PROJTIP={ rd:'What he does for YOUR team: expected roto points of your fin
  lr:'His 2025-26 rank PER GAME. Flatters anyone who missed games — compare it with the totals rank to its left.',
  pj:'Chance he finishes inside the top 70.', min:'Projected minutes per game.', g:'Projected games played.',
  nwn:'How many Rotoworld pieces were written about him between 1 July and 13 September. Every manager in this room reads them. Hover a cell for the latest headline. Red = the press has called him a fantasy buy, so he is not a sleeper whatever his line says.'};
+// WORTH TO YOU (17 Oct 2026, Daniel: "what if Ant Edwards is cheap? how do we see if players are cheap and worth to
+// draft? ... do you prepare the rest of the line up?"). His reservation price for YOUR roster: the highest price at which
+// "he is mine at $p, then the best plan for the other slots" still beats "he goes to someone else, then the best plan".
+// Both sides are the full plan engine (lite mode, 1,500 annealing steps), found by halving the price range ($1 .. max bid).
+// A first version swapped him for one or two plan players and was far too low (Edwards $18 vs $22 here; 424 of 482
+// players "worth $0") because the money he frees was never re-spent. Cached per draft state; the call computes it when
+// it opens, the Players table fills it in the background for the 30 best available players by Blend $ plus plan players.
+const _worth=new Map(); let _worthQ=[], _worthBusy=false;
+function draftKeyNW(){ return JSON.stringify(Object.entries(state.picks).filter(([n,s])=>!s.whatif).map(([n,s])=>[n,s.status,s.mine?1:0,s.price])); }
+function liteWith(name,st){ const had=state.picks[name], sv=window.__nbIter, ss=window.__nbSeed; window.__nbSeed=draftKeyNW(); state.picks[name]=st; window.__nbIter=2500; let E;
+  try{ E=nbEngine({lite:true}); } finally { window.__nbIter=sv; window.__nbSeed=ss; if(had) state.picks[name]=had; else delete state.picks[name]; } return E; }
+function worthTo(name){ const k=draftKeyNW()+'|'+name; if(_worth.has(k)) return _worth.get(k);
+  const ms=myStatus(); if(ms.need<=0||state.picks[name]) return null; const maxB=ms.left-(ms.need-1); if(maxB<1) return null;
+  const gone=liteWith(name,{status:'gone',mine:false,whatif:true}).exp, at=p=>liteWith(name,{status:'won',mine:true,price:p,whatif:true}).exp;
+  // start at his usual price: one test splits the range, so most players need 5-6 runs instead of 8
+  const r0=((_nbMemo.res||{}).rd||{})[name], u=Math.max(1,Math.min(maxB,(r0&&r0.c)||1));
+  let v=0, lo, hi; if(at(u)>=gone){ lo=u; hi=maxB+1; } else if(u>1&&at(1)>=gone){ lo=1; hi=u; } else { lo=0; hi=0; }
+  if(hi>lo){ while(hi-lo>1){ const m=Math.floor((lo+hi)/2); if(at(m)>=gone) lo=m; else hi=m; } v=lo; }
+  const res={v,max:maxB,gone}; _worth.set(k,res); return res; }
+function worthCached(name){ return _worth.get(draftKeyNW()+'|'+name)||null; }
+function worthPump(){ if(_worthBusy) return; const n=_worthQ.shift(); if(!n) return; _worthBusy=true;
+  setTimeout(()=>{ try{ const w=worthTo(n); document.querySelectorAll(`td[data-be="${CSS.escape(n)}"]`).forEach(td=>{ td.outerHTML=beCell(n,w); }); } finally { _worthBusy=false; worthPump(); } },15); }
+function worthQueue(names){ const key=draftKeyNW(); if(worthQueue._k!==key){ _worthQ=[]; worthQueue._k=key; } for(const n of names) if(!_worthQ.includes(n)&&!worthCached(n)) _worthQ.push(n); worthPump(); }
+function beCell(n,w){ const r=((_nbMemo.res||{}).rd||{})[n]; const usual=r?r.c:null; const esc=String(n).replace(/"/g,'&quot;');
+  if(!w) return `<td class="rdc rdbad" data-be="${esc}" data-tip="Computed for the 30 best available players by Blend $ and the plan players; open his call to compute it for anyone else.">…</td>`;
+  if(!(w.v>0)) return `<td class="rdc rdbad" data-be="${esc}" data-tip="Even at $1 your final team is not better with him than without him.">$0</td>`;
+  const ok=usual!=null&&w.v>=usual, top=w.v>=w.max;
+  return `<td class="rdc ${ok?'rdplan':''}" data-be="${esc}" data-tip="${top?`Worth at least your max bid of $${w.max}.`:`Worth up to $${w.v} to your team.`}${usual!=null?(ok?` The room usually pays about $${usual}: a buy at the usual price.`:` The room usually pays about $${usual}: only if he goes cheap.`):''}">$${w.v}${top?'+':''}</td>`; }
+// WHAT IF (17 Oct 2026): re-plan as if he were already yours at $p (the full engine: annealing, prices, slots), then put
+// the draft back exactly as it was. A what-if pick never moves the room-price index.
+function vwiWorth(name){ const v=document.getElementById('vwiV'), sm=document.getElementById('vwiS'); if(!v) return;
+  const w=worthTo(name), r=((_nbMemo.res||{}).rd||{})[name]; if(!w){ v.textContent='—'; sm.textContent=''; return; }
+  const usual=r?r.c:null, ok=w.v>0&&usual!=null&&w.v>=usual;
+  v.className='v '+(w.v>0?(ok?'good':''):'bad'); v.textContent=w.v>0?(w.v>=w.max?`$${w.max}+`:`up to ~$${w.v}`):'not even at $1';
+  const pol=byName[name]?policyFor(byName[name]):null, cap=pol&&pol.cap>0?pol.cap:null;
+  // three zones for the bid: under his worth to you = a bargain for this roster; up to the Cap = fair (the plan's
+  // alternatives are better value, buy him only if you want him); above the Cap = walk away
+  const zones=w.v>0?(cap&&cap>w.v?` Bargain under $${w.v} · fair $${w.v}-${cap} (your cap) · walk away above $${cap}.`:(cap?` Your cap is $${cap}: stop there.`:'')):(cap?` Only at $1-2 if at all; your cap is $${cap}.`:'');
+  sm.textContent=(w.v>0?`Above ~$${w.v} your final team is better if he goes elsewhere.${usual!=null?` The room usually pays ~$${usual}.`:''}`:'Your best plan is better without him at any price.')+zones; }
+function whatIf(name){ const inp=document.getElementById('vwiP'), out=document.getElementById('vwiOut'); if(!inp||!out) return;
+  const p=Math.round(+inp.value||0), ms=myStatus(), maxB=ms.left-Math.max(0,ms.need-1);
+  if(!(p>=1)){ out.innerHTML='Type a price of $1 or more.'; return; } if(p>maxB){ out.innerHTML=`$${p} is above your max bid of $${maxB}.`; return; }
+  const E0=liteWith(name,{status:'gone',mine:false,whatif:true}), E1=liteWith(name,{status:'won',mine:true,price:p,whatif:true});
+  const d=E1.exp-E0.exp, lst=E1.ros.slice().sort((a,b)=>b.cost-a.cost);
+  out.innerHTML=`<div class="vwi-d ${Math.abs(d)<0.5?'':(d>=0?'good':'bad')}">${Math.abs(d)<0.5?'About even':(d>=0?'+':'−')+Math.abs(d).toFixed(1)+' roto'} vs letting him go${Math.abs(d)<0.5?' (within ±0.5, the search\'s noise)':''} <span>(${E1.exp.toFixed(0)} vs ${E0.exp.toFixed(0)} expected for your final team)</span></div>
+    <div class="vwi-p">Then the plan for your other ${E1.need} slot${E1.need===1?'':'s'} ($${E1.left} left, uses $${E1.spent}):</div>
+    <div class="vwi-list">${lst.map(x=>`<span><b>${x.q.name}</b> $${x.cost}</span>`).join('')||'<span>roster full</span>'}</div>`; }
 function rdCell(r){ if(!r) return '<td>—</td>';
   if(r.d==null) return `<td class="rdc" data-tip="${r.why} (usual price $${r.c})">—</td>`;
   const v=r.d, txt=(v>=0.05?'+':v<=-0.05?'−':'')+Math.abs(v).toFixed(1), cls=r.plan?'rdplan':v>=-0.5?'rdok':v<=-3?'rdbad':'';
@@ -2759,7 +2821,9 @@ function renderProj(){
   // so this column and the call box can never show two numbers; off the board it is the projection file's Cap.
   rows.forEach(p=>{ if(p.cap==='KEEPER'){ p.capNow=-2; p.edgeLive=null; return; } const bp=byName[p.name]; p.capNow=bp?(policyFor(bp).cap||0):(typeof p.cap==='number'?p.cap:0);
     p.edgeLive=Math.round((p.blend||0)-Math.max(+p.hi||0, p.capNow)); });
-  const RD=(nbEngine().rd)||{}; rows.forEach(p=>{ const r=RD[p.name]; p.rdv=r&&r.d!=null?r.d:null; });
+  const RD=(nbEngine().rd)||{}; rows.forEach(p=>{ const r=RD[p.name]; p.rdv=r&&r.d!=null?r.d:null; const w=worthCached(p.name); p.bev=w?w.v:null; });
+  { const planN=(nbEngine().plan||[]).map(x=>x.q.name), av=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0).sort((a,b)=>(b.blend||0)-(a.blend||0)).slice(0,30).map(q=>q.name);
+    setTimeout(()=>worthQueue(planN.concat(av)),0); }
   const c=projSort.col, d=projSort.dir;
   const SEATORD={anchor:0,star:1,mid:2,cheap:3,off:9};
   rows.sort((a,b)=>{ let x=a[c],y=b[c];
@@ -2768,6 +2832,7 @@ function renderProj(){
     if(c==='cap'){ x=a.capNow; y=b.capNow; }
     if(c==='edge'){ x=a.edgeLive; y=b.edgeLive; }
     if(c==='rd'){ x=a.rdv; y=b.rdv; }
+    if(c==='be'){ x=a.bev; y=b.bev; }
     if(typeof x==='string'||typeof y==='string'){ x=String(x==null?'':x); y=String(y==null?'':y); return d*x.localeCompare(y); }
     if(x==null) return 1; if(y==null) return -1; return d*(x-y); });
   const total=rows.length, shown=rows.slice(0,projLimit);
@@ -2787,7 +2852,7 @@ function renderProj(){
     const cells={
       name:`<td class="l nm">${faceHTML(p.name)}<a href="#" class="pnm" onclick="return openCall('${esc}')">${p.name}</a>${gemTag(p.name)}${p.keep?` <span class="src">${p.keep}</span>`:''}</td>`,
       __st:`<td class="l act">${act}</td>`, cap:`<td>${capC}</td>`, lo:`<td>${p.lo!=null?'$'+p.lo+'-'+p.hi:'—'}</td>`,
-      blend:`<td>${p.blend?'$'+p.blend:'—'}</td>`, edge:`<td>${edge}</td>`, rd:rdCell(RD[p.name]), y:`<td>${p.y?'$'+p.y:'—'}</td>`,
+      blend:`<td>${p.blend?'$'+p.blend:'—'}</td>`, edge:`<td>${edge}</td>`, rd:rdCell(RD[p.name]), be:beCell(p.name,worthCached(p.name)), y:`<td>${p.y?'$'+p.y:'—'}</td>`,
       seat:`<td class="l">${seatOf[p.name]?seatPill(seatOf[p.name],true)+(planBudget[p.name]?`<span class="planb" title="what the card budgets for this seat">$${planBudget[p.name]}</span>`:''):''}</td>`,
       tm:`<td class="l">${p.tm||''}</td>`, ypos:`<td class="l">${p.ypos||p.grp||''}</td>`, g:`<td>${p.g??''}</td>`, min:`<td>${p.min??''}</td>`,
       p:`<td>${p.p??''}</td>`, tp:`<td>${p.tp??''}</td>`, r:`<td>${p.r??''}</td>`, a:`<td>${p.a??''}</td>`, s:`<td>${p.s??''}</td>`, b:`<td>${p.b??''}</td>`, to:`<td>${p.to??''}</td>`,
@@ -3411,14 +3476,14 @@ function roomIndex(){ let paid=0, usual=0, n=0;
   // ONE SALE CANNOT SWING THE ROOM (12 Oct 2026): a $40 Derik Queen (usual $5) read as a room 8x hot, the index hit its
   // +35% ceiling and every plan price jumped over its cap, so the plan left $27 unspent. Each sale now counts between 0.5x
   // and 2x its usual price, and $1-3 players (noise) do not count.
-  for(const [nm,st] of Object.entries(state.picks)){ if(st.price==null||!(st.price>0)) continue; const q=pjOf(nm); if(!q) continue; const u=usualPrice(q); if(!(u>=4)) continue; paid+=Math.min(2*u,Math.max(0.5*u,st.price)); usual+=u; n++; }
+  for(const [nm,st] of Object.entries(state.picks)){ if(st.whatif||st.price==null||!(st.price>0)) continue; const q=pjOf(nm); if(!q) continue; const u=usualPrice(q); if(!(u>=4)) continue; paid+=Math.min(2*u,Math.max(0.5*u,st.price)); usual+=u; n++; }
   if(!n||!usual) return {f:1,n:0,raw:1}; const raw=paid/usual, w=n/(n+15); return {f:Math.max(0.75,Math.min(1.35,1+(raw-1)*w)),n,raw}; }
 let _nbMemo={key:null,res:null};
-function nbEngine(){
+function nbEngine(opt){ const lite=!!(opt&&opt.lite);   // lite: just the best plan (no why-him, stretch or Roto +/-), never memoised
   const ms=myStatus(), need=ms.need, left=ms.left;
   const mine=Object.entries(state.picks).filter(([n,st])=>st.status==='won'&&st.mine).map(([n])=>pjOf(n)).filter(Boolean);
   const key=JSON.stringify(Object.entries(state.picks).map(([n,s])=>[n,s.status,s.mine?1:0,s.price]));
-  if(_nbMemo.key===key) return _nbMemo.res;
+  if(!lite&&_nbMemo.key===key) return _nbMemo.res;
   const RI=roomIndex();
   const pool=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0)
     // PLANNING CAP: the cap that will apply when the plan buys him. A card pivot is capped at 85% only while his
@@ -3446,7 +3511,7 @@ function nbEngine(){
   const legal=ros=>{ const all=mineSlots.concat(ros.map(x=>slotObj(x.q))); const u=assignSlots(all); return all.every((x,i)=>u.indexOf(i)>=0); };
   const vecOf=ros=>ros.reduce((acc,x)=>acc.map((y,i)=>y+x.v[i]), baseV.slice());
   const evalR=ros=>nbExp(nbCats(vecOf(ros)));
-  if(need<=0){ const res={need, left, mine, plan:[], exp:nbExp(nbCats(baseV)), disc:nbDisc(nbCats(baseV)), spent:0, RI, rd:{}}; _nbMemo={key,res}; return res; }
+  if(need<=0){ const res={need, left, mine, plan:[], ros:[], exp:nbExp(nbCats(baseV)), disc:nbDisc(nbCats(baseV)), spent:0, RI, rd:{}}; if(!lite) _nbMemo={key,res}; return res; }
   // a full plan from a seed (affordable seed players kept, keeping $1 per later slot; the rest greedy), then single-swap polish
   const fillFrom=(seed,excl)=>{ const ex=new Set(excl||[]); const ros=[]; let money=left;
     for(const x of seed){ if(ros.length>=need) break; if(!x||ex.has(x.q.name)) continue; if(x.cost>money-(need-ros.length-1)) continue; ros.push(x); ex.add(x.q.name); money-=x.cost; }
@@ -3462,7 +3527,8 @@ function nbEngine(){
   const seeds=[[]].concat((SCEN.scenarios||[]).filter(sc=>['cheap','normal','expensive'].includes(sc.id)).map(sc=>seedOf(sc.players.map(p=>p.name))), [seedOf(PLAN.map(r=>r.primary.name))]);
   let best=null; for(const sd of seeds){ const P=polish(fillFrom(sd),2); if(!best||P.exp>best.exp) best=P; }
   // simulated annealing: single and pair swaps, seeded by the draft state so the same state gives the same plan
-  let h=2166136261; for(let i=0;i<key.length;i++){ h^=key.charCodeAt(i); h=Math.imul(h,16777619); }
+  // a what-if run seeds the search from the REAL draft state, so "mine at $p" and "gone" differ only by him, not by luck
+  const seedKey=(lite&&window.__nbSeed)||key; let h=2166136261; for(let i=0;i<seedKey.length;i++){ h^=seedKey.charCodeAt(i); h=Math.imul(h,16777619); }
   const rnd=nbRng(h^((window.__nbSalt)||0));
   let cur={ros:best.ros.slice(),money:best.money,ex:new Set(best.ex)}, curS=best.exp, top={ros:cur.ros.slice(),money:cur.money,ex:new Set(cur.ex),exp:curS};
   const N=cur.ros.length, ITER=(window.__nbIter)||(need>=3?5000:1500);
@@ -3475,6 +3541,7 @@ function nbEngine(){
     if((s>curS||rnd()<Math.exp((s-curS)/T))&&legal(t)){ cur.ex.delete(cur.ros[i].q.name); if(two) cur.ex.delete(cur.ros[j].q.name); cur.ex.add(y.q.name); if(z) cur.ex.add(z.q.name);
       cur.ros=t; cur.money=spare; curS=s; if(s>top.exp){ top={ros:t.slice(),money:spare,ex:new Set(cur.ex),exp:s}; } } }
   best=polish(top,3);
+  if(lite) return {need,left,mine,exp:best.exp,ros:best.ros,spent:left-best.money};
   // MISS HIM: expected roto the plan loses if he goes elsewhere (re-plan without him: refill his slot, polish)
   // WHY HIM (11 Oct 2026, Daniel: "tell me the advantage of picking them ... +2 roto or top in steals"): the same re-plan,
   // compared category by category (expected roto points with him minus without him), who the plan buys instead, and
