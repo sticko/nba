@@ -811,6 +811,7 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .vwi-out{margin-top:8px} .vwi-d{font-weight:700;font-size:14px} .vwi-d.good{color:var(--good)} .vwi-d.bad{color:var(--danger)} .vwi-d span{font-weight:400;font-size:11.5px;color:var(--text-faint)}
 .vwi-p{margin-top:4px;font-size:12px} .vwi-list{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-size:12px} .vwi-list b{color:var(--text)}
 .plink{color:inherit;text-decoration:none;border-bottom:1px dotted var(--text-faint)} .plink:hover{color:var(--accent);border-bottom-color:var(--accent)}
+.pname{cursor:pointer;border-bottom:1px dotted var(--text-faint)} .pname:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .vwi-rd{margin-top:6px;font-size:12px;color:var(--text-dim)} .vwi-rd b{font-variant-numeric:tabular-nums} .vwi-rd span{color:var(--text-faint)}
 .vwi-cats{margin-top:4px;font-size:12px;color:var(--text-dim);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
 .vwi .up{color:var(--good);font-weight:700} .vwi .dn{color:var(--danger);font-weight:700}
@@ -3402,6 +3403,41 @@ function renderGemWatch(){
 
 // ---- the cockpit ----
 function openCall(n){ const i=document.getElementById('vInput'); i.value=n; hideSugg(); renderVerdict(); window.scrollTo({top:0,behavior:'smooth'}); return false; }
+// EVERY PLAYER NAME OPENS HIS CALL (18 Oct 2026, Daniel: "make sure we can click player name so it goes to profile player
+// on every page that we have names"). One linker instead of a link in each of the ~30 render functions: it finds every
+// kit player's full name in the page text and wraps it in <span class="pname">; one capture click handler opens the
+// call. Names already inside a link (.pnm in the Players table, plink in the call), a button, an input or the search
+// suggestions are left alone. A MutationObserver re-links what renderAll rewrites, but only for the tab on screen and
+// the call drawer; a hidden tab is linked when it is shown, so a logged pick does not scan every table on the page.
+const LINK_FIRST=(()=>{ const m=new Map(), seen=new Set();
+  for(const n of PJ.map(q=>q.name).concat(BOARD.map(b=>b.name))){ if(!n||seen.has(n)) continue; seen.add(n);
+    const f=n.split(' ')[0]; if(!/^[A-Z]/.test(f)||n.indexOf(' ')<0) continue; if(!m.has(f)) m.set(f,[]); m.get(f).push(n); }
+  for(const a of m.values()) a.sort((x,y)=>y.length-x.length); return m; })();
+const LINK_SKIP=new Set(['A','BUTTON','INPUT','TEXTAREA','SELECT','OPTION','LABEL','SCRIPT','STYLE','SVG','svg']);
+function linkNames(root){ if(!root||!root.isConnected) return;
+  const tw=document.createTreeWalker(root,NodeFilter.SHOW_ELEMENT|NodeFilter.SHOW_TEXT,{acceptNode:n=>{
+    if(n.nodeType===1) return (LINK_SKIP.has(n.tagName)||n.classList.contains('pname')||n.classList.contains('sugg')||n.isContentEditable)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_SKIP;
+    return n.nodeValue.length>=5?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_SKIP; }});
+  if(root.nodeType===1&&root.closest('a,button,label,.pname,.sugg')) return;
+  const hits=[]; let t; while((t=tw.nextNode())){ const v=t.nodeValue, re=/[A-Z][A-Za-z'.\-]*/g; let m, list=null, last=0;
+    while((m=re.exec(v))){ const c=LINK_FIRST.get(m[0]); if(!c||(m.index>0&&/[A-Za-z]/.test(v[m.index-1]))) continue;
+      const n=c.find(n=>v.startsWith(n,m.index)&&!/[A-Za-z]/.test(v[m.index+n.length]||'')); if(!n) continue;
+      (list=list||[]).push([m.index,n]); re.lastIndex=m.index+n.length; }
+    if(list) hits.push([t,list]); }
+  for(const [t,list] of hits){ const v=t.nodeValue, f=document.createDocumentFragment(); let at=0;
+    for(const [i,n] of list){ if(i>at) f.appendChild(document.createTextNode(v.slice(at,i))); const sp=document.createElement('span'); sp.className='pname'; sp.dataset.p=n; sp.textContent=n; f.appendChild(sp); at=i+n.length; }
+    if(at<v.length) f.appendChild(document.createTextNode(v.slice(at))); t.parentNode.replaceChild(f,t); } }
+document.addEventListener('click',e=>{ const sp=e.target.closest&&e.target.closest('.pname'); if(!sp) return; e.preventDefault(); e.stopPropagation(); openCall(sp.dataset.p); },true);
+const _linkDirty=new Set(); let _linkQ=new Set(), _linkT=null, _linkObs=null;
+function linkFlush(){ _linkT=null; const q=_linkQ; _linkQ=new Set(); for(const r of q) linkNames(r); if(_linkObs) _linkObs.takeRecords(); }
+function linkInit(){ document.querySelectorAll('.tabpane').forEach(p=>{ if(p.hidden) _linkDirty.add(p); else linkNames(p); });
+  document.querySelectorAll('body > :not(.wrap):not(script)').forEach(linkNames);
+  _linkObs=new MutationObserver(ms=>{ for(const m of ms){ const el=m.target.nodeType===1?m.target:m.target.parentElement; if(!el) continue;
+      if(m.type==='attributes'){ if(el.classList.contains('tabpane')&&!el.hidden&&_linkDirty.has(el)){ _linkDirty.delete(el); _linkQ.add(el); } continue; }
+      const pane=el.closest('.tabpane'); if(pane&&pane.hidden){ _linkDirty.add(pane); continue; } _linkQ.add(el); }
+    if(_linkQ.size&&!_linkT) _linkT=setTimeout(linkFlush,30); });
+  _linkObs.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['hidden']}); }
+setTimeout(linkInit,0);
 function renderCockpit(){
   const ck=document.getElementById('ckCard');
   if(ck){ let done=0;
