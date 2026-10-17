@@ -810,6 +810,9 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .vwi-r input{width:64px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text);font-variant-numeric:tabular-nums}
 .vwi-out{margin-top:8px} .vwi-d{font-weight:700;font-size:14px} .vwi-d.good{color:var(--good)} .vwi-d.bad{color:var(--danger)} .vwi-d span{font-weight:400;font-size:11.5px;color:var(--text-faint)}
 .vwi-p{margin-top:4px;font-size:12px} .vwi-list{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-size:12px} .vwi-list b{color:var(--text)}
+.vwi-rd{margin-top:6px;font-size:12px;color:var(--text-dim)} .vwi-rd b{font-variant-numeric:tabular-nums} .vwi-rd span{color:var(--text-faint)}
+.vwi-cats{margin-top:4px;font-size:12px;color:var(--text-dim);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.vwi .up{color:var(--good);font-weight:700} .vwi .dn{color:var(--danger);font-weight:700}
 .mgr-sumn{font-size:11.5px;color:var(--text-faint);margin-top:6px}
 .mgr-chs{display:flex;flex-wrap:wrap;gap:4px}
 .mgr-ch{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;background:var(--surface)} .mgr-ch b{color:var(--text)}
@@ -1063,6 +1066,7 @@ details.method[open] summary:after{content:'\2212'}
       </table>
     </div>
     <div class="sc-odds" id="scOdds"></div>
+    <div class="sc-odds" id="liveRiv"></div>
     <div class="sc-note"><b>2026-27 projected league</b> = your projected totals ranked against the 15 rivals' projected rosters from 2,000 simulated drafts (order-statistic means) — like for like, same projection system. The historical columns compare against REAL past standings, so your projected counting totals are first scaled up by the league's realisation factor (real ÷ projected league median: PTS ×1.22, REB ×1.21, AST ×1.17, 3PM ×1.15, STL ×1.13, BLK ×1.26, TO ×1.17) — real teams stream and replace injured players, projections are regressed. On the "what they really did" buttons only the streaming part applies — real lines are not regressed — measured on this league's 2021-26 teams: PTS ×1.10, REB ×1.07, AST ×1.11, 3PM ×1.09, STL ×1.10, BLK ×1.10, TO ×1.07; the projected-league column is blank there. Target avg/g = the top-4 rate over the last 3 seasons on the same projection basis (10 counting slots x 78g cap). Green = you're pacing at or above that target right now; red = below. Only players you've marked "won" count toward these totals.</div>
   </div>
   </section>
@@ -1703,6 +1707,38 @@ function renderSeason(){ const box=document.getElementById('seaPace'); if(!box) 
       return `<tr><td><b>${r.q.name}</b> <span style="color:var(--text-faint)">${r.q.ypos||''}</span></td><td>${r.q.tm||''}</td><td class="n">${wk(r.q)}</td><td class="n">${seaGames(r.q.tm,today,last)}</td>
         <td class="n"><span class="${r.d>=0.05?'up':r.d<=-0.05?'dn':''}">${r.d>=0?'+':'−'}${Math.abs(r.d).toFixed(1)}</span></td><td>${r.drop}</td><td>${cat||'—'}</td></tr>`; }).join('')}</tbody>`;
 }
+// LIVE RIVALS (18 Oct 2026, Daniel during the draft: "will other managers' stats affect our category rank? ... do option 1").
+// Each pasted "gone" pick now keeps its buyer. Per rival: his drafted players' projected lines + his open slots filled
+// with the typical player his money left can buy (the 12 available players whose usual price is nearest his money per
+// open slot, averaged). You = your players + the plan for your open slots. Rivals not seen yet keep the pre-draft
+// simulated values (evenly spaced from the 15 simulated rivals). Keepers are not attributed (Yahoo team names are not
+// mapped to managers), so they count inside the open-slot fill. An estimate for reading the room; the plan engine still
+// scores against the simulated rivals.
+function liveRivals(){ const T={}; let noBy=0;
+  for(const [n,s] of Object.entries(state.picks)){ if(s.whatif||s.status!=='gone') continue; if(!s.by){ noBy++; continue; } const q=pjOf(n);
+    const t=T[s.by]||(T[s.by]={by:s.by,players:[],spent:0,v:new Array(12).fill(0)}); t.players.push(n); t.spent+=(+s.price||0); if(q){ const w=nbVec(q); for(let k=0;k<12;k++) t.v[k]+=w[k]; } }
+  const avail=PJ.filter(q=>!state.picks[q.name]&&!isKeeper(q.name)&&(q.g||0)>0).map(q=>({u:usualPrice(q),v:nbVec(q)}));
+  const rivals=Object.values(T).map(t=>{ const slots=Math.max(0,13-t.players.length), money=Math.max(0,200-t.spent), v=t.v.slice();
+    if(slots>0&&avail.length){ const per=money/slots, near=avail.slice().sort((a,b)=>Math.abs(a.u-per)-Math.abs(b.u-per)).slice(0,12);
+      for(let k=0;k<12;k++){ let m=0; for(const x of near) m+=x.v[k]; v[k]+=slots*m/near.length; } }
+    return {...t, slots, money, maxBid:slots>0?Math.max(0,money-(slots-1)):0, cats:nbCats(v)}; });
+  return {rivals, noBy}; }
+function renderLiveRivals(){ const el=document.getElementById('liveRiv'); if(!el) return; const L=liveRivals();
+  if(!L.rivals.length){ el.innerHTML=`<div class="sc-oh"><b>Live rivals</b> <span>none yet: paste the Yahoo draft results to log who bought each player${L.noBy?` (${L.noBy} gone pick${L.noBy>1?'s':''} logged without a buyer: paste the results again to fill them in)`:''}</span></div>`; return; }
+  const SIM=STANDINGS['2026-27 (proj)'], k=L.rivals.length, nFill=Math.max(0,15-k);
+  const fill=c=>{ const a=SIM[c].slice().sort((x,y)=>c==='TO'?x-y:y-x); const out=[]; for(let i=0;i<nFill;i++) out.push(a[Math.round((i+0.5)*a.length/nFill-0.5)]); return out; };
+  let E; try{ E=nbEngine(); }catch(e){ E=null; } const mine=Object.entries(state.picks).filter(([n,s])=>s.status==='won'&&s.mine).map(([n])=>pjOf(n)).filter(Boolean);
+  const mv=mine.map(q=>nbVec(q)).concat((E&&E.plan||[]).map(x=>x.v)).reduce((acc,w)=>acc.map((y,i)=>y+w[i]),new Array(12).fill(0)), me=nbCats(mv);
+  const LAB={PTS:'PTS','3PTM':'3PM',REB:'REB',AST:'AST',ST:'STL',BLK:'BLK','FG%':'FG%','FT%':'FT%',TO:'TO'};
+  const pts=(v,others,c)=>{ const better=c==='TO'?others.filter(x=>x<v).length:others.filter(x=>x>v).length; return {rank:better+1,p:1+15*(others.length-better)/others.length}; };
+  let myTot=0, simTot=0; const rows=NB_CATS.map(c=>{ const others=L.rivals.map(r=>r.cats[c]).concat(fill(c)); const a=pts(me[c],others,c), b=pts(me[c],SIM[c],c); myTot+=a.p; simTot+=b.p;
+    return `<tr><td><b>${LAB[c]}</b></td><td class="n">#${a.rank}</td><td class="n">${a.p.toFixed(1)}</td><td class="n" style="color:var(--text-faint)">#${b.rank}</td></tr>`; }).join('');
+  const rivRoto=L.rivals.map(r=>{ let t=0; for(const c of NB_CATS){ const others=L.rivals.filter(x=>x!==r).map(x=>x.cats[c]).concat(fill(c),[me[c]]); t+=pts(r.cats[c],others,c).p; } return {...r,roto:t}; }).sort((a,b)=>b.roto-a.roto);
+  el.innerHTML=`<div class="sc-oh"><b>Live rivals</b> <span>${k} rival${k>1?'s':''} seen in your pastes${nFill?`, ${nFill} still simulated`:''}. You = your players + the plan for your open slots; each rival = his buys + his open slots filled with what his money left typically buys.</span></div>
+    <div class="hgrid" style="margin-top:8px"><div class="hwrap"><table class="sea-t"><thead><tr><th>Category</th><th>Your rank vs live rivals</th><th>Points</th><th>vs simulated</th></tr></thead><tbody>${rows}
+      <tr><td><b>Total</b></td><td></td><td class="n"><b>${myTot.toFixed(1)}</b></td><td class="n" style="color:var(--text-faint)">${simTot.toFixed(1)}</td></tr></tbody></table></div>
+    <div class="hwrap"><table class="sea-t"><thead><tr><th>Rival</th><th>Players</th><th>Spent</th><th>Left</th><th>Max bid</th><th>Projected roto</th></tr></thead><tbody>${rivRoto.map(r=>`<tr><td><b>${r.by}</b></td><td class="n">${r.players.length}</td><td class="n">$${r.spent}</td><td class="n">$${r.money}</td><td class="n">$${r.maxBid}</td><td class="n">${r.roto.toFixed(0)}</td></tr>`).join('')}</tbody></table></div></div>
+    <div class="sc-on">Keepers are not counted per rival (Yahoo team names are not linked to managers): they sit inside the open-slot estimate. Spent and left count auction buys only, so a rival with a keeper has a little less money than shown.${L.noBy?` ${L.noBy} gone pick${L.noBy>1?'s were':' was'} logged without a buyer (Gone button / X): paste the Yahoo results again to fill them in.`:''}</div>`; }
 function openModal(title, bodyHTML, confirmLabel, onConfirm, boxCls){
   const overlay = document.getElementById('modalOverlay');
   const box = overlay.querySelector('.modal-box'); box.className = 'modal-box' + (boxCls ? ' '+boxCls : '');
@@ -2313,7 +2349,7 @@ function renderVerdict(){
       const dflt=Math.max(1,Math.min(maxAfford, r&&r.c?r.c:(pol.cap||1)));
       setTimeout(()=>vwiWorth(hit.name),20);
       return `<div class="vwi"><div class="vwi-l"><span class="k">Worth to your team</span><span class="v" id="vwiV">…</span>
-          <small id="vwiS">computing his walk-away price for your roster…</small></div>
+          <small id="vwiS">computing his walk-away price for your roster…</small>${rdLine(r)}</div>
         <div class="vwi-r"><label>What if I buy him at $<input type="number" id="vwiP" min="1" max="${maxAfford}" value="${dflt}" onkeydown="if(event.key==='Enter'){whatIf('${esc}');}"></label>
           <button class="chipbtn" onclick="whatIf('${esc}')">Show my lineup</button><div id="vwiOut" class="vwi-out"></div></div></div>`; })()}
     <div class="vrow2">
@@ -2779,12 +2815,27 @@ function vwiWorth(name){ const v=document.getElementById('vwiV'), sm=document.ge
   // alternatives are better value, buy him only if you want him); above the Cap = walk away
   const zones=w.v>0?(cap&&cap>w.v?` Bargain under $${w.v} · fair $${w.v}-${cap} (your cap) · walk away above $${cap}.`:(cap?` Your cap is $${cap}: stop there.`:'')):(cap?` Only at $1-2 if at all; your cap is $${cap}.`:'');
   sm.textContent=(w.v>0?`Above ~$${w.v} your final team is better if he goes elsewhere.${usual!=null?` The room usually pays ~$${usual}.`:''}`:'Your best plan is better without him at any price.')+zones; }
+// ROTO +/- AND CATEGORY EFFECT IN THE PROFILE (18 Oct 2026, Daniel during the draft: "I want to see roto +/- and stats
+// effect in player profile, based on what I have drafted"): the Players table's Roto +/- for this player, with the
+// categories it moves, under "Worth to your team"; the what-if result lists the category changes too.
+function catChips(list){ return (list||[]).map(o=>`<span class="${o.d>0?'up':'dn'}">${o.k} ${o.d>0?'+':'−'}${Math.abs(o.d).toFixed(1)}</span>`).join(' '); }
+function rdLine(r){ if(!r) return '';
+  if(r.d==null) return `<div class="vwi-rd">Roto +/-: — <span>(${r.why})</span></div>`;
+  const cs=r.cat||[], pick=r.plan?cs.slice(0,5):[...cs.filter(o=>o.d>0).slice(0,3),...cs.filter(o=>o.d<0).slice(-3).reverse()];
+  return `<div class="vwi-rd">${r.plan?`<b class="up">In your plan</b> at ~$${r.c}: worth <b>+${r.d.toFixed(1)}</b> roto over the best replacement (${(r.out||[]).join(', ')||'none'})`
+    :`Roto +/- at his usual ~$${r.c}: <b class="${r.d>=0?'up':'dn'}">${r.d>=0?'+':'−'}${Math.abs(r.d).toFixed(1)}</b> vs your best plan, in place of ${(r.out||[]).join(', ')}`}
+    ${pick.length?`<div class="vwi-cats">${r.plan?'Categories he carries: ':'Your categories: '}${catChips(pick)}</div>`:''}</div>`; }
 function whatIf(name){ const inp=document.getElementById('vwiP'), out=document.getElementById('vwiOut'); if(!inp||!out) return;
   const p=Math.round(+inp.value||0), ms=myStatus(), maxB=ms.left-Math.max(0,ms.need-1);
   if(!(p>=1)){ out.innerHTML='Type a price of $1 or more.'; return; } if(p>maxB){ out.innerHTML=`$${p} is above your max bid of $${maxB}.`; return; }
   const E0=liteWith(name,{status:'gone',mine:false,whatif:true}), E1=liteWith(name,{status:'won',mine:true,price:p,whatif:true});
   const d=E1.exp-E0.exp, lst=E1.ros.slice().sort((a,b)=>b.cost-a.cost);
+  const tv=E=>(E.mine||[]).map(q=>({v:nbVec(q)})).concat(E.ros).reduce((acc,x)=>acc.map((y,i)=>y+x.v[i]),new Array(12).fill(0));
+  const LABW={PTS:'PTS','3PTM':'3PM',REB:'REB',AST:'AST',ST:'STL',BLK:'BLK','FG%':'FG%','FT%':'FT%',TO:'TO'};
+  const c1=nbExpCats(nbCats(tv(E1))), c0=nbExpCats(nbCats(tv(E0)));
+  const cd=NB_CATS.map(k=>({k:LABW[k],d:c1[k]-c0[k]})).filter(o=>Math.abs(o.d)>=0.2).sort((a,b)=>b.d-a.d);
   out.innerHTML=`<div class="vwi-d ${Math.abs(d)<0.5?'':(d>=0?'good':'bad')}">${Math.abs(d)<0.5?'About even':(d>=0?'+':'−')+Math.abs(d).toFixed(1)+' roto'} vs letting him go${Math.abs(d)<0.5?' (within ±0.5, the search\'s noise)':''} <span>(${E1.exp.toFixed(0)} vs ${E0.exp.toFixed(0)} expected for your final team)</span></div>
+    ${cd.length?`<div class="vwi-cats">Your final categories vs letting him go: ${catChips(cd)}</div>`:''}
     <div class="vwi-p">Then the plan for your other ${E1.need} slot${E1.need===1?'':'s'} ($${E1.left} left, uses $${E1.spent}):</div>
     <div class="vwi-list">${lst.map(x=>`<span><b>${x.q.name}</b> $${x.cost}</span>`).join('')||'<span>roster full</span>'}</div>`; }
 function rdCell(r){ if(!r) return '<td>—</td>';
@@ -3357,8 +3408,14 @@ function pasteParse(text){
     // Yahoo's own draft results write "Your Team" for your buys (18 Oct 2026, Daniel during the draft): that is mine too,
     // with or without a team name typed in the box
     const sp=' '+span.join(' ')+' ', mine=(!!mt&&sp.includes(' '+mt+' '))||sp.includes(' your team ');
+    // the buyer (18 Oct 2026, live rivals): Yahoo writes "A. Edwards PG,SG MIN dennis $60" - the words before the price
+    // that are not a position, an NBA team code or a number
+    let by=null; { const pi=span.findIndex(t=>/^\$\d{1,3}$/.test(t)); if(pi>0){ const POS=new Set(['pg','sg','sf','pf','c','g','f','util','bn','il']);
+      const TMS=new Set(Object.keys(SCHED.teams).map(t=>t.toLowerCase()).concat(['gs','ny','no','sa','pho','uth','was','bkn','nop','gsw','nyk','sas']));
+      const w=span.slice(0,pi).filter(t=>!POS.has(t)&&!TMS.has(t)&&!/^\d+$/.test(t)); if(w.length&&w.length<=4) by=w.join(' '); } }
+    if(mine||onblock||by==='proj') by=null;
     // a name can appear twice (the "Last:" line, then his row in Results): the line with a price wins
-    const prev=out.get(h.n); if(!prev||price!=null||(prev.price==null&&!onblock)) out.set(h.n,{n:h.n,price,mine,onblock:onblock&&!(prev&&prev.price!=null)}); });
+    const prev=out.get(h.n); if(!prev||price!=null||(prev.price==null&&!onblock)) out.set(h.n,{n:h.n,price,mine,by,onblock:onblock&&!(prev&&prev.price!=null)}); });
   const res=[...out.values()]; res.anyDollar=anyDollar; return res;
 }
 function pasteRead(){
@@ -3368,12 +3425,13 @@ function pasteRead(){
   // When the text carries $ prices, a name with no price next to it was not sold in that text: the player on the
   // block, the queue, the Players list. He is shown but not ticked, so copying the whole Yahoo page cannot mark
   // an unsold player gone.
+  let filled=0; PASTE.forEach(r=>{ const st=state.picks[r.n]; if(st&&st.status==='gone'&&!st.by&&r.by){ st.by=r.by; filled++; } }); if(filled){ save(); renderLiveRivals(); }
   const rows=PASTE.map((r,ix)=>{ const kp=isKeeper(r.n), st=state.picks[r.n], done=!!st&&(st.price===r.price||r.price==null), nop=(PASTE.anyDollar&&r.price==null)||r.onblock;
     const note=kp?'keeper — not in the auction':(st?(st.status==='won'&&st.mine?`already yours $${st.price}`:'already logged'):(r.onblock?'on the block, not sold yet — not ticked':(nop?'no $ price next to him — not ticked':'')));
-    return `<tr class="${kp||done||nop?'skip':''}"><td><input type="checkbox" id="pv_c${ix}" ${kp||done||nop?'':'checked'} ${kp?'disabled':''}></td><td>${r.n}${note?` <span style="color:var(--text-faint)">· ${note}</span>`:''}</td><td><input type="number" id="pv_p${ix}" min="1" max="200" value="${r.price??''}"></td><td><select id="pv_s${ix}"><option value="gone">gone</option><option value="mine" ${r.mine?'selected':''}>mine</option></select></td></tr>`; }).join('');
+    return `<tr class="${kp||done||nop?'skip':''}"><td><input type="checkbox" id="pv_c${ix}" ${kp||done||nop?'':'checked'} ${kp?'disabled':''}></td><td>${r.n}${note?` <span style="color:var(--text-faint)">· ${note}</span>`:''}${r.by?` <span style="color:var(--text-faint)">· to ${r.by}</span>`:''}</td><td><input type="number" id="pv_p${ix}" min="1" max="200" value="${r.price??''}"></td><td><select id="pv_s${ix}"><option value="gone">gone</option><option value="mine" ${r.mine?'selected':''}>mine</option></select></td></tr>`; }).join('');
   const nNew=PASTE.filter(r=>!isKeeper(r.n)&&!state.picks[r.n]&&!(PASTE.anyDollar&&r.price==null)&&!r.onblock).length;
   pv.innerHTML=`<table class="pv"><tr><th></th><th>Player found</th><th>Price</th><th>Who</th></tr>${rows}</table>
-    <div class="prow"><button class="btn primary" onclick="pasteApply()">Log the ticked players</button><span>${PASTE.length} found · ${nNew} not logged yet. Untick anything wrong; fix a price if needed.</span></div>`;
+    <div class="prow"><button class="btn primary" onclick="pasteApply()">Log the ticked players</button><span>${PASTE.length} found · ${nNew} not logged yet${filled?` · buyer added to ${filled} pick${filled>1?'s':''} already logged`:''}. Untick anything wrong; fix a price if needed.</span></div>`;
 }
 function pasteApply(){
   const before={}; let n=0; const miss=[];
@@ -3382,7 +3440,7 @@ function pasteApply(){
     const mine=(document.getElementById('pv_s'+ix)||{}).value==='mine';
     if(mine&&price==null){ miss.push(r.n); return; }
     before[r.n]=state.picks[r.n]?JSON.parse(JSON.stringify(state.picks[r.n])):null;
-    state.picks[r.n]=mine?{status:'won',mine:true,price,seat:null,t:Date.now()+ix}:{status:'gone',mine:false,price,t:Date.now()+ix};
+    state.picks[r.n]=mine?{status:'won',mine:true,price,seat:null,t:Date.now()+ix}:{status:'gone',mine:false,price,by:r.by||null,t:Date.now()+ix};
     if(mine) state.picks[r.n].seat=seatFor(r.n);
     n++; });
   PASTE_LAST=before; save(); renderAll();
@@ -3686,7 +3744,7 @@ function renderMyPlayers(){
     :'<div class="contnote" style="margin-top:0">Nobody yet. Press Z in the search box, or paste Yahoo results with your team name.</div>';
 }
 
-function renderAll(){ renderManagers(); renderHistory(); renderSeason(); renderNotes(); renderNextBest(); renderMyPlayers(); renderCockpit(); renderGemWatch(); renderRosters(); renderCheap3(); renderJumpers(); renderScen(); renderProj(); renderLedger(); renderNeeds(); renderTeam(); renderLadder(); renderEndgame(); renderContingency(); renderClock(); renderScorecard(); renderPlan(); renderOptimizer(); renderVerdict(); }
+function renderAll(){ renderManagers(); renderHistory(); renderSeason(); renderLiveRivals(); renderNotes(); renderNextBest(); renderMyPlayers(); renderCockpit(); renderGemWatch(); renderRosters(); renderCheap3(); renderJumpers(); renderScen(); renderProj(); renderLedger(); renderNeeds(); renderTeam(); renderLadder(); renderEndgame(); renderContingency(); renderClock(); renderScorecard(); renderPlan(); renderOptimizer(); renderVerdict(); }
 
 (function(){ const sel=document.getElementById('projTeam'); if(sel){ [...new Set(PJ.map(p=>p.tm).filter(Boolean))].sort().forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;sel.appendChild(o);}); sel.addEventListener('change',()=>{projLimit=150;renderProj();}); }
   const q=document.getElementById('projQ'); if(q) q.addEventListener('input',()=>{projLimit=150;renderProj();});
