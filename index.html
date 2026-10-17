@@ -814,6 +814,8 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .vwi-rd{margin-top:6px;font-size:12px;color:var(--text-dim)} .vwi-rd b{font-variant-numeric:tabular-nums} .vwi-rd span{color:var(--text-faint)}
 .vwi-cats{margin-top:4px;font-size:12px;color:var(--text-dim);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
 .vwi .up{color:var(--good);font-weight:700} .vwi .dn{color:var(--danger);font-weight:700}
+.mstrip{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin-top:10px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:13px;color:var(--text-dim)}
+.mstrip b{color:var(--text);font-variant-numeric:tabular-nums} .mstrip .mx b{color:var(--gold);font-size:16px} .mstrip .av b{color:var(--accent);font-size:16px} .mstrip i{font-style:normal;color:var(--text-faint);font-size:11.5px}
 .mgr-sumn{font-size:11.5px;color:var(--text-faint);margin-top:6px}
 .mgr-chs{display:flex;flex-wrap:wrap;gap:4px}
 .mgr-ch{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;background:var(--surface)} .mgr-ch b{color:var(--text)}
@@ -1821,7 +1823,7 @@ function markWon(name, mine){
        <div class="bp-rng"><span class="k">Room's price range</span>${(()=>{ const pb=roomBand(name,.1,.9); return pb?`<b>$${pb.a} – $${pb.b}</b><span class="s">8 in 10 of 2,000 simulated drafts${p&&p.payLo!=null?` · usually $${p.payLo}-${p.payHi}`:''}${wo&&wo.hi>pb.b?` · once as high as $${wo.hi}`:''}</span>`:'<b>—</b><span class="s">no simulated price</span>'; })()}</div></div>
      <div class="buy-odds"><span class="bo-ic" aria-hidden="true">🏆</span><div class="modal-odds" id="modalOdds">${oddsLine(name, guess)}</div></div>
      ${priceFacts(name)}
-     <div class="buy-hint"><span class="bo-ic sm" aria-hidden="true">$</span><div><b>Whole dollars, $1 to $${maxBid}</b><br>($${ms.left} left, $1 kept for each of the other ${Math.max(0,ms.need-1)} open slots).</div></div>`,
+     <div class="buy-hint"><span class="bo-ic sm" aria-hidden="true">$</span><div><b>Max bid $${maxBid}</b> · average <b>$${(ms.left/Math.max(1,ms.need)).toFixed(ms.left/Math.max(1,ms.need)<10?1:0)}</b> per open slot<br>($${ms.left} left for ${ms.need} open slot${ms.need>1?'s':''}, $1 kept for each of the other ${Math.max(0,ms.need-1)}; whole dollars).</div></div>`,
     'Confirm purchase',
     () => {
       const val = String(document.getElementById('modalInput').value).trim();
@@ -2330,6 +2332,7 @@ function renderVerdict(){
       const rng=_pj.vlo!=null&&_pj.vhi>_pj.vlo?(()=>{ const m=hit.punt||_pj.punt||0, x=Math.max(0,Math.min(100,100*(m-_pj.vlo)/(_pj.vhi-_pj.vlo)));
         return `<div class="vcb-rng"><div class="vr-t">Value range <b>$${_pj.vlo} – ${_pj.vhi}</b> (80%)</div><div class="vr-bar"><i style="width:${x}%"></i><b style="left:${x}%"></b></div><div class="vr-l"><span>$${_pj.vlo}</span><span class="vr-m" style="left:${x}%">our engine $${m.toFixed(0)}</span><span>$${_pj.vhi}</span></div></div>`; })():'';
       return `<div class="vcallbox ${cls}"><div class="vcb-left"><span class="vcb-chip">${chip}</span><div class="vcb-big">${big.charAt(0).toUpperCase()+big.slice(1)}</div></div>${mid}${rng}</div>`; })()}
+    ${(stMine||hit.keeper)?'':moneyStrip()}
     ${st?'':valueBar(hit.name,pol.cap)}
     ${(()=>{ const gi=gemInfo(hit.name); if(!gi||st) return ''; const odds=gi.ch!=null?`The room let him go for $3 or less in ${gi.ch}% of simulated drafts, usually $${gi.med}.`:'';
       return gi.tier==='gem'
@@ -2403,6 +2406,13 @@ function faceHTML(n){ const id=HEADS[n]; if(!(LOCALFACE&&id)) return '';
 function faceBig(n){ const id=HEADS[n], ini=`<span class="face big ini">${initials(n)}</span>`;
   if(!(LOCALFACE&&id)) return ini;
   return `<img class="face big" src="https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png" alt="" onerror="this.outerHTML='${ini.replace(/'/g,"\\'").replace(/"/g,'&quot;')}'">`; }
+// MONEY STRIP (18 Oct 2026, Daniel during the draft: "show what is the max amount of money left to spend (we have to
+// have at least $1 for each of the rest empty roster), and show the avg we should spend if divided equally"):
+// max bid = money left - $1 for each OTHER open slot; average = money left / open slots.
+function moneyStrip(){ const ms=myStatus(); if(ms.need<=0) return '<div class="mstrip"><span>Roster full</span></div>';
+  const maxB=Math.max(0,ms.left-(ms.need-1)), avg=ms.left/ms.need;
+  return `<div class="mstrip"><span><b>$${ms.left}</b> left</span><span><b>${ms.need}</b> open slot${ms.need>1?'s':''}</span>
+    <span class="mx">Max bid <b>$${maxB}</b> <i>($1 kept for each of the other ${ms.need-1})</i></span><span class="av">Average <b>$${avg.toFixed(avg<10?1:0)}</b> per open slot</span></div>`; }
 function vrow(ic,lab,body){ return `<div class="vrow"><span class="ic">${ic}</span><span class="lab">${lab}</span><div class="body">${body}</div></div>`; }
 function vCrumb(n){ const c=document.getElementById('vdCrumb'); if(c) c.innerHTML=`Instant call <span class="sep">›</span> <b>${n}</b>`; return ''; }
 function vProjCard(hit){ const q=PJ.find(x=>x.name===hit.name); if(!q) return '';
