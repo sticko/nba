@@ -810,6 +810,7 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .vwi-r input{width:64px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text);font-variant-numeric:tabular-nums}
 .vwi-out{margin-top:8px} .vwi-d{font-weight:700;font-size:14px} .vwi-d.good{color:var(--good)} .vwi-d.bad{color:var(--danger)} .vwi-d span{font-weight:400;font-size:11.5px;color:var(--text-faint)}
 .vwi-p{margin-top:4px;font-size:12px} .vwi-list{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-size:12px} .vwi-list b{color:var(--text)}
+.plink{color:inherit;text-decoration:none;border-bottom:1px dotted var(--text-faint)} .plink:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .vwi-rd{margin-top:6px;font-size:12px;color:var(--text-dim)} .vwi-rd b{font-variant-numeric:tabular-nums} .vwi-rd span{color:var(--text-faint)}
 .vwi-cats{margin-top:4px;font-size:12px;color:var(--text-dim);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
 .vwi .up{color:var(--good);font-weight:700} .vwi .dn{color:var(--danger);font-weight:700}
@@ -2819,11 +2820,14 @@ function vwiWorth(name){ const v=document.getElementById('vwiV'), sm=document.ge
 // effect in player profile, based on what I have drafted"): the Players table's Roto +/- for this player, with the
 // categories it moves, under "Worth to your team"; the what-if result lists the category changes too.
 function catChips(list){ return (list||[]).map(o=>`<span class="${o.d>0?'up':'dn'}">${o.k} ${o.d>0?'+':'−'}${Math.abs(o.d).toFixed(1)}</span>`).join(' '); }
+// a player name in the call's lists opens that player's call (18 Oct 2026, Daniel: "if I click the player name here,
+// it goes to that player profile")
+function plink(n){ const e=String(n).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return `<a href="#" class="plink" onclick="return openCall('${e}')"><b>${n}</b></a>`; }
 function rdLine(r){ if(!r) return '';
   if(r.d==null) return `<div class="vwi-rd">Roto +/-: — <span>(${r.why})</span></div>`;
   const cs=r.cat||[], pick=r.plan?cs.slice(0,5):[...cs.filter(o=>o.d>0).slice(0,3),...cs.filter(o=>o.d<0).slice(-3).reverse()];
-  return `<div class="vwi-rd">${r.plan?`<b class="up">In your plan</b> at ~$${r.c}: worth <b>+${r.d.toFixed(1)}</b> roto over the best replacement (${(r.out||[]).join(', ')||'none'})`
-    :`Roto +/- at his usual ~$${r.c}: <b class="${r.d>=0?'up':'dn'}">${r.d>=0?'+':'−'}${Math.abs(r.d).toFixed(1)}</b> vs your best plan, in place of ${(r.out||[]).join(', ')}`}
+  return `<div class="vwi-rd">${r.plan?`<b class="up">In your plan</b> at ~$${r.c}: worth <b>+${r.d.toFixed(1)}</b> roto over the best replacement (${(r.out||[]).map(plink).join(', ')||'none'})`
+    :`Roto +/- at his usual ~$${r.c}: <b class="${r.d>=0?'up':'dn'}">${r.d>=0?'+':'−'}${Math.abs(r.d).toFixed(1)}</b> vs your best plan, in place of ${(r.out||[]).map(plink).join(', ')}`}
     ${pick.length?`<div class="vwi-cats">${r.plan?'Categories he carries: ':'Your categories: '}${catChips(pick)}</div>`:''}</div>`; }
 function whatIf(name){ const inp=document.getElementById('vwiP'), out=document.getElementById('vwiOut'); if(!inp||!out) return;
   const p=Math.round(+inp.value||0), ms=myStatus(), maxB=ms.left-Math.max(0,ms.need-1);
@@ -2837,7 +2841,7 @@ function whatIf(name){ const inp=document.getElementById('vwiP'), out=document.g
   out.innerHTML=`<div class="vwi-d ${Math.abs(d)<0.5?'':(d>=0?'good':'bad')}">Roto +/- at $${p}: ${Math.abs(d)<0.5?'about even':(d>=0?'+':'−')+Math.abs(d).toFixed(1)} vs letting him go${Math.abs(d)<0.5?' (within ±0.5, the search\'s noise)':''} <span>(${E1.exp.toFixed(0)} vs ${E0.exp.toFixed(0)} expected for your final team)</span></div>
     ${cd.length?`<div class="vwi-cats">Your final categories vs letting him go: ${catChips(cd)}</div>`:''}
     <div class="vwi-p">Then the plan for your other ${E1.need} slot${E1.need===1?'':'s'} ($${E1.left} left, uses $${E1.spent}):</div>
-    <div class="vwi-list">${lst.map(x=>`<span><b>${x.q.name}</b> $${x.cost}</span>`).join('')||'<span>roster full</span>'}</div>`; }
+    <div class="vwi-list">${lst.map(x=>`<span>${plink(x.q.name)} $${x.cost}</span>`).join('')||'<span>roster full</span>'}</div>`; }
 function rdCell(r){ if(!r) return '<td>—</td>';
   if(r.d==null) return `<td class="rdc" data-tip="${r.why} (usual price $${r.c})">—</td>`;
   const v=r.d, txt=(v>=0.05?'+':v<=-0.05?'−':'')+Math.abs(v).toFixed(1), cls=r.plan?'rdplan':v>=-0.5?'rdok':v<=-3?'rdbad':'';
