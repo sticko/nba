@@ -452,7 +452,7 @@ table.ntab td.nm{white-space:nowrap}
 .nbstretch{display:flex;flex-direction:column;gap:6px;border:1px dashed var(--accent);border-radius:12px;padding:9px 12px;margin-top:8px;font-size:12px;line-height:1.35}
 .nbstretch a{color:var(--text);font-weight:700;text-decoration:none} .nbstretch a:hover{text-decoration:underline}
 .nbstretch .dim{display:block;color:var(--text-faint);font-size:11px} .nbstretch .pos{color:var(--good)} .nbstretch .neg{color:var(--danger)}
-.nbinfo .nbl.dim a{color:var(--text-dim);text-decoration:none} .nbinfo .nbl.dim a:hover{text-decoration:underline} .nbinfo .nbl .neg{color:var(--danger)}
+.nbinfo .nbl.dim a{color:var(--text-dim);text-decoration:none} .nbinfo .nbl.dim a:hover{text-decoration:underline} .nbinfo .nbl .neg{color:var(--danger)} .nbinfo .nbl .pos{color:var(--good);font-weight:600}
 .nbrestl a{color:var(--text);text-decoration:none} .nbrestl a:hover{text-decoration:underline} .nbrestl b{font-weight:600;color:var(--text)}
 .nbhow{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);padding:10px 12px;margin-top:10px;font-size:12px;color:var(--text-dim);line-height:1.5}
 .nbhow p{margin:6px 0 0}
@@ -1153,7 +1153,7 @@ details.method[open] summary:after{content:'\2212'}
         <div id="nbList"></div>
         <div class="nbhow"><div class="nbhow-t"><span class="nbhow-ic" aria-hidden="true">?</span>How this works</div>
           <p>Updated after every pick. The page builds the best 13-man plan your money still buys: it starts from the kit's Scenarios and your card, then searches thousands of one- and two-player swaps, scoring expected roto in all 9 categories against the simulated rivals.</p>
-          <p>Prices follow the room: if sales run hot or cold, the plan's prices move with them. The top 6 are the plan's biggest buys right now. "Miss him" is how many roto points the plan loses if he goes elsewhere; "replaceable" means an equal player is still there.</p>
+          <p>Prices follow the room: if sales run hot or cold, the plan's prices move with them. The top 6 are the plan's biggest buys right now. "Worth +1.3 roto" means your final team scores 1.3 roto points more with him than with the best swap; "replaceable" means that gap is under 0.5. "If you miss him" lists the swaps and how many points each one costs. Everywhere on the page, a + next to a player means he helps your team.</p>
           <p>Bid up to the cap, never past it.</p></div>
       </div>
       <div class="cont paste">
@@ -2834,7 +2834,7 @@ function whatIf(name){ const inp=document.getElementById('vwiP'), out=document.g
   const LABW={PTS:'PTS','3PTM':'3PM',REB:'REB',AST:'AST',ST:'STL',BLK:'BLK','FG%':'FG%','FT%':'FT%',TO:'TO'};
   const c1=nbExpCats(nbCats(tv(E1))), c0=nbExpCats(nbCats(tv(E0)));
   const cd=NB_CATS.map(k=>({k:LABW[k],d:c1[k]-c0[k]})).filter(o=>Math.abs(o.d)>=0.2).sort((a,b)=>b.d-a.d);
-  out.innerHTML=`<div class="vwi-d ${Math.abs(d)<0.5?'':(d>=0?'good':'bad')}">${Math.abs(d)<0.5?'About even':(d>=0?'+':'−')+Math.abs(d).toFixed(1)+' roto'} vs letting him go${Math.abs(d)<0.5?' (within ±0.5, the search\'s noise)':''} <span>(${E1.exp.toFixed(0)} vs ${E0.exp.toFixed(0)} expected for your final team)</span></div>
+  out.innerHTML=`<div class="vwi-d ${Math.abs(d)<0.5?'':(d>=0?'good':'bad')}">Roto +/- at $${p}: ${Math.abs(d)<0.5?'about even':(d>=0?'+':'−')+Math.abs(d).toFixed(1)} vs letting him go${Math.abs(d)<0.5?' (within ±0.5, the search\'s noise)':''} <span>(${E1.exp.toFixed(0)} vs ${E0.exp.toFixed(0)} expected for your final team)</span></div>
     ${cd.length?`<div class="vwi-cats">Your final categories vs letting him go: ${catChips(cd)}</div>`:''}
     <div class="vwi-p">Then the plan for your other ${E1.need} slot${E1.need===1?'':'s'} ($${E1.left} left, uses $${E1.spent}):</div>
     <div class="vwi-list">${lst.map(x=>`<span><b>${x.q.name}</b> $${x.cost}</span>`).join('')||'<span>roster full</span>'}</div>`; }
@@ -3709,24 +3709,28 @@ function renderNextBest(){
   const byCost=E.plan.slice().sort((a,b)=>(b.cost-a.cost)||(b.loss-a.loss)); const top=byCost.slice(0,6), rest=byCost.slice(6);   // six cards since 12 Oct 2026 (Daniel: "recommend 6, not 3")
   top.forEach(x=>{ const bp=byName[x.q.name]; if(bp){ const pol=policyFor(bp); x.now=pol.cap||0; x.cap=pol.shaved&&pol.fullCap?pol.fullCap:x.now; } });
   // Card layout (11 Oct 2026, the designer's mock): rank tab, round face with the team under it, name and a card-target
-  // chip, then one fact per line (position · team · plan price / odds and "miss him" / the room's real prices / strong
+  // chip, then one fact per line (position · team · plan price / odds and "worth +x roto" / the room's real prices / strong
   // categories), the cap with Won / Gone on the right; the rest of the plan as a two-column list with its total.
   const cardSet=new Set(PLAN.map(r=>r.primary.name));
   const face=(n,tm)=>{ const id=HEADS[n]; return `<span class="nbface">${LOCALFACE&&id?`<img src="https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png" alt="" loading="lazy" onerror="this.remove()">`:`<span class="ini">${initials(n)}</span>`}<span class="nbteam">${tm||''}</span></span>`; };
   const paid=n=>roomPaid(n);
   box.innerHTML=top.map((x,i)=>{ const q=x.q, nmJ=q.name.replace(/'/g,"\\'"), o=x.cap>1?winProb(q.name,x.cap):null;
     const st=c3Strong(q).map(c=>weak.has(c)?`<b style="color:var(--good)">${c}</b>`:c).join(' · ')||'—';
-    const lossTxt=x.loss>=0.5?`<span style="white-space:nowrap">miss him: <b class="neg">−${x.loss.toFixed(1)} roto</b></span>`:'replaceable';
+    // ONE SIGN RULE (18 Oct 2026, Daniel: "thats cofusing, fix it"): the card said "miss him: −1.3" while the Players
+    // table and the profile showed the same number as +1.3. A signed roto number next to a player now always means
+    // what HE does for your final team, plus = good: "worth +1.3 roto" over the best swap. The swaps say "1.3 less".
+    const sw=x.alts&&x.alts.length?x.alts[0]:null, lossTip=`Your final team with him vs with the best swap${sw?` (${sw.n} $${sw.c})`:''}. Plus = good: he helps your team.`;
+    const lossTxt=`<span style="white-space:nowrap" title="${lossTip.replace(/"/g,'&quot;')}">worth <b class="${x.loss>=0.05?'pos':''}">${x.loss>=0.05?'+':x.loss<=-0.05?'−':''}${Math.abs(x.loss).toFixed(1)} roto</b>${x.loss<0.5?' · replaceable':''}</span>`;
     const r=paid(q.name), warn=r.some(v=>v>x.cost)?`<span class="nbl warn">⚠ Room paid $${r.join(' / $')}</span>`:'';
     const capHTML=x.cap>1?(x.now!=null&&x.now<x.cap?`<span class="nbcap" title="$${x.cap} once his primary is gone"><span>Cap</span> <b>$${x.now}</b><small> →$${x.cap}</small></span>`:`<span class="nbcap"><span>Cap</span> <b>$${x.cap}</b></span>`):`<span class="nbcap" title="only at $1, end filler"><b>$1</b><small> only</small></span>`;
     // COMPACT CARD (12 Oct 2026, Daniel: "too tall, make it 30% shorter"): cap and Won / Gone sit on the name row, so
-    // the lines below use the full width; price · odds · miss him on one line, the swap and why-him on one line.
+    // the lines below use the full width; price · odds · worth on one line, the swap and why-him on one line.
     return `<div class="nbcard"><span class="nbk">${i+1}</span>${face(q.name,q.tm)}
       <div class="nbinfo"><div class="nbtop"><div class="nbname"><a href="#" onclick="return openCall('${nmJ}')">${q.name}</a>${cardSet.has(q.name)?'<span class="nbchip">Card</span>':''}${gemTag(q.name)}</div>
           <div class="nbright">${capHTML}<span class="nbbtns"><button class="btn act-won" onclick="markWon('${nmJ}',true)">Won</button><button class="btn act-gone" onclick="markGone('${nmJ}')">Gone</button></span></div></div>
         <span class="nbl">${q.ypos||''} · Plan $${x.cost}${o?` · ${o.p}% at cap`:''} · ${lossTxt}${x.ranks&&x.ranks.length?` <span class="dim">· left: ${x.ranks.slice(0,2).map(r=>`#${r.r} ${r.k}`).join(', ')}</span>`:''}</span>${warn}
         ${x.inst&&x.inst.length&&x.cat&&x.cat.length?`<span class="nbl why"><span class="dim">vs ${x.inst.map(y=>`${y.n} $${y.c}`).join(' + ')}:</span> ${x.cat.slice(0,4).map(c=>`<span class="${c.d>0?'pos':'neg'}">${c.d>0?'+':'−'}${Math.abs(c.d).toFixed(1)} ${c.k}</span>`).join(' · ')}</span>`:''}
-        ${x.alts&&x.alts.length?`<span class="nbl dim">Also good: ${x.alts.map(a=>`<a href="#" onclick="return openCall('${a.n.replace(/'/g,"\\'")}')">${a.n}</a> $${a.c} <span class="neg">${a.d>=0?'+':'−'}${Math.abs(a.d).toFixed(1)}</span>`).join(' · ')}</span>`:''}
+        ${x.alts&&x.alts.length?`<span class="nbl dim">If you miss him: ${x.alts.map(a=>`<a href="#" onclick="return openCall('${a.n.replace(/'/g,"\\'")}')">${a.n}</a> $${a.c} (${Math.abs(a.d)<0.05?'same':Math.abs(a.d).toFixed(1)+(a.d<0?' less':' more')})`).join(' · ')}</span>`:''}
       </div></div>`; }).join('')
     +`<div class="nbresth"><span>Stretch targets</span><span class="nbrestn">not in the plan · 40%+ to win at your cap · + beats the plan</span></div>
       ${E.stretch&&E.stretch.length?`<div class="nbstretch">${E.stretch.map(x=>`<div><a href="#" onclick="return openCall('${x.q.name.replace(/'/g,"\\'")}')">${x.q.name}</a>${gemTag(x.q.name)}
