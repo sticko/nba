@@ -845,6 +845,7 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .od-t td{text-align:left;vertical-align:top} .od-t td.n,.od-t th{text-align:center} .od-t .news{font-size:12px;line-height:1.35}
 .slp-t .ok{color:var(--good);font-weight:700} .slp-t .warn{color:var(--gold);font-weight:700} .slp-t .bad{color:var(--danger);font-weight:700} .slp-t .risk.hi{color:var(--danger);font-weight:700}
 .mgr-sumn{font-size:11.5px;color:var(--text-faint);margin-top:6px}
+.mgr-sum{font-size:12.5px;line-height:1.5;color:var(--text-dim);margin:8px 0 6px;padding-left:10px;border-left:3px solid var(--accent)}
 .mgr-chs{display:flex;flex-wrap:wrap;gap:4px}
 .mgr-ch{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;background:var(--surface)} .mgr-ch b{color:var(--text)}
 .mgr-ch.card{border-color:var(--gold);color:var(--text)}
@@ -2294,6 +2295,26 @@ function renderRoomSummary(){ const el=document.getElementById('mgrRoom'); if(!e
     return `<tr><td class="t">${lab}</td><td class="num">${x(ROOMP._league[k])}</td><td>${hi.map(t=>`<b>${t[0]}</b> <span class="${roomHeat(t[1])}">${x(t[1])}</span>`).join(' · ')}</td><td>${lo.map(t=>`<b>${t[0]}</b> <span class="${roomHeat(t[1])}">${x(t[1])}</span>`).join(' · ')}</td><td class="num">${me!=null?`<span class="${roomHeat(me)}">${x(me)}</span>`:'—'}</td></tr>`; }).join('');
   el.innerHTML=`<table class="mgr-sum"><thead><tr><th>Yahoo $ tier</th><th>league</th><th>pays most</th><th>pays least</th><th>you</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="mgr-sumn">Median price ÷ Yahoo $, every pick 2021-26. Red = 1.25× or more, green = 1.00× or less. The $40+ tier is thin: ${ROOMP._league.n40} star sales in 5 years across ${riv.length} managers, so one sale moves a number a lot.</div>`; }
+// MANAGER SUMMARY IN WORDS (18 Oct 2026, mid-draft, Daniel: "for manager tab, create a summary in word for each manager
+// profile"): four or five plain sentences built from the same numbers the tiles show - how he spends, what he pays, how
+// his picks turn out, who he keeps chasing, and what that means at the table.
+function mgrSummary(m){ if(m.me) return ''; const st=m.style||{}, P=m.pricing||{}, C=m.career||{}, S=m.skill, F=m.prof, L=m.last||{}, pos=m.pos||{}, R=ROOMP[m.code]||null;
+  const x=v=>v==null?null:+(+v).toFixed(2); const out=[];
+  // 1. spending shape
+  const e=st.early, l=st.late; if(e!=null){ out.push(e>=85?`Spends almost everything early: ${e}% of his money went in the first third of last draft, ${l}% in the last third, so he is usually out of money by the middle rounds.`:e>=72?`Spends early: ${e}% of his money in the first third, ${l}% in the last third.`:e<=60?`Saves for late: only ${e}% in the first third, ${l}% in the last third, so he is one of the few with money when the room is dry.`:`Balanced spender: ${e}% in the first third, ${l}% in the last third.`); }
+  if(C.top1!=null) out.push(`His top buy averages $${C.top1}${F?`, with ${F.n25.toFixed(1)} buys of $25+ and ${F.ones.toFixed(1)} $1 buys a year`:''}.`);
+  // 2. what he pays
+  const star=R?R.star:P.star, mid=R?R.mid:P.mid, cheap=R?R.cheap:P.cheap; const w=(v)=>v==null?'—':(v>=1.25?'well over':(v>=1.08?'over':(v<=0.92?'under':'about')));
+  if(star!=null||mid!=null||cheap!=null) out.push(`Pays ${w(star)} Yahoo $ for stars (${x(star)}×), ${w(mid)} for the middle tier (${x(mid)}×) and ${w(cheap)} for cheap players (${x(cheap)}×)${(R?R.over:P.over)!=null?`; overpays by 25%+ on ${R?R.over:P.over}% of his picks`:''}${(R?R.big:P.big)?` - biggest: ${R?R.big:P.big}`:''}.`);
+  // 3. how it turns out
+  if(S) out.push(`His picks ${S.surplus>-1?'hold their value':S.surplus<-3?'lose a lot of value':'lose some value'} (${S.surplus>0?'+':''}${S.surplus.toFixed(1)} per pick); ${S.hit100}% finish top-100 and ${S.cheap}% of his cheap picks hit.`);
+  if(L.rank) out.push(`Finished #${L.rank} last season${L.pts!=null?` with ${L.pts} points`:''}${L.adds!=null?`, ${L.adds} waiver adds`:''}${L.unspent?`, left $${L.unspent} unspent`:''}${L.topfab?`, top FAB bid ${L.topfab}`:''}.`);
+  // 4. leans and chases
+  const lean=[['G',pos.G],['F',pos.F],['C',pos.C]].filter(z=>z[1]!=null).sort((a,b)=>b[1]-a[1]); if(lean.length) out.push(`Leans ${lean[0][0]==='G'?'guards':lean[0][0]==='F'?'forwards':'centers'} (${Math.round(lean[0][1]*100)}% of his money)${m.young!=null?`, ${m.young}% on young players`:''}${m.age?`, average age ${m.age}`:''}.`);
+  const th=(m.threats||[]).filter(t=>t.n>=2).slice(0,3); if(th.length) out.push(`Keeps going back to ${th.map(t=>`${t.p} (${t.n}×, ~$${t.avg})`).join(', ')}.`);
+  // 5. what it means at the table
+  const tip=e>=85?'Expect him to bid hard on the first ten names and vanish; he is no threat at the end.':(e<=60?'He is the one to beat for $5-15 players late; do not expect bargains when he is still holding money.':(mid>=1.2?'He overpays the $20-40 tier: let him have those names and buy around him.':(cheap>=1.5?'He pays double for $1-5 bodies: nominate your fillers early and let him spend.':'Prices near Yahoo across the board: a straight bidder, no obvious hole to exploit.')));
+  out.push(tip); return out.join(' '); }
 function renderManagers(){ renderRoomSummary(); const g=document.getElementById('mgrGrid'); if(!g) return;
   const onCard=new Set(); PLAN.forEach(r=>{ onCard.add(r.primary.name); r.pivots.forEach(p=>onCard.add(p.name)); });
   const STY={'FRONT-LOAD (spend early)':['early','Spends early'],'HOARD (spend late)':['late','Saves for late'],'BALANCED':['bal','Balanced']};
@@ -2303,6 +2324,7 @@ function renderManagers(){ renderRoomSummary(); const g=document.getElementById(
     const chase=(m.threats||[]).map(t=>`<span class="mgr-ch ${onCard.has(t.p)?'card':''}" title="${t.n} time${t.n>1?'s':''} bought, average $${t.avg}, top $${t.mx}${onCard.has(t.p)?' · on your card':''}">${t.p} <b>${t.n}×</b> $${t.avg}${t.mx>t.avg?'-'+t.mx:''}</span>`).join('');
     const seas=(m.seasons||[]).slice().reverse().map(b=>`<tr><td>${b.s}</td><td>$${b.spend??'—'}</td><td>${b.topp?`${b.topp} <b>$${b.top}</b>`:'—'}</td><td>${b.early!=null?b.early+'%':'—'}</td><td>${b.rank?'#'+b.rank:'—'}</td></tr>`).join('');
     return `<div class="mgrcard ${m.me?'me':''}"><div class="mgr-h"><div><div class="mgr-n">${m.name}</div><div class="mgr-s">${m.me?`teams: ${(m.aliases||[]).join(', ')} · ${m.years} seasons (2016-17 to 2022-23) · last finish <b>#${L.rank}</b>`:`${m.code} · ${m.years} season${m.years>1?'s':''} of data${L.rank?` · 2025-26 finish <b>#${L.rank}</b>`:''}`}</div></div>${st?`<span class="mgr-sty ${st[0]}" title="${m.style.early}% of his money spent in the first third of the draft, ${m.style.late}% in the last third (${m.style.season})">${st[1]}</span>`:''}</div>
+      ${m.me?'':`<div class="mgr-sum">${mgrSummary(m)}</div>`}
       ${m.me?`<div class="mgr-k">Value per pick and top-100 hits from your ${S?S.n:0} picks of 2021-22 and 2022-23: <b>the best in this league</b> (every rival's value per pick is negative).</div>`:(m.keepers&&m.keepers.length?`<div class="mgr-k">Keeps: ${m.keepers.map(k=>`<b>${k.p}</b> $${k.c}`).join(' · ')}</div>`:'<div class="mgr-k dim">No keeper this year</div>')}
       <div class="mgr-tiles">
         <div><span class="k">Top buy (avg)</span><span class="v">$${C.top1??(F?Math.round(F.avg_top):'—')}</span></div>
