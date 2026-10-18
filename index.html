@@ -820,7 +820,8 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .mstrip b{color:var(--text);font-variant-numeric:tabular-nums} .mstrip .mx b{color:var(--gold);font-size:16px} .mstrip .av b{color:var(--accent);font-size:16px} .mstrip i{font-style:normal;color:var(--text-faint);font-size:11.5px}
 .lsc{border:1px solid var(--accent);border-radius:12px;padding:12px 14px;margin-bottom:18px;background:var(--surface-2)}
 .lsc h3{font-family:'Big Shoulders Display';font-size:19px;letter-spacing:.02em;margin:0 0 4px;color:var(--text)} .lsc h3 .n{font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:12px;font-weight:400;color:var(--text-faint);margin-left:8px}
-.lsc-ctl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:10px;font-size:13px;color:var(--text-dim)} .lsc-ctl label{display:flex;align-items:center;gap:8px} .lsc-ctl input[type=range]{width:180px;accent-color:var(--accent)} .lsc-ctl b{color:var(--text);min-width:110px}
+.lsc-ctl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:10px;font-size:13px;color:var(--text-dim)} .lsc-ctl label{display:flex;align-items:center;gap:6px} .lsc-ctl input[type=text]{width:200px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text)} .lsc-ctl input[type=number]{width:58px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text)} .lsc-ctl input[type=checkbox]{accent-color:var(--accent)}
+.lsc-card td.risk{text-align:right;font-size:11px;color:var(--text-faint);white-space:nowrap} .lsc-card td.risk.hi{color:var(--danger);font-weight:700} .lsc-card .odds{font-size:12px;color:var(--text-dim)} .lsc-card .odds b{color:var(--text)} .lsc-ctl input[type=range]{width:180px;accent-color:var(--accent)} .lsc-ctl b{color:var(--text);min-width:110px}
 .lsc-note{font-size:12px;color:var(--gold)}
 .lsc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
 .lsc-card{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--text-dim)}
@@ -1201,6 +1202,8 @@ details.method[open] summary:after{content:'\2212'}
         <h3>Live scenarios from what is left <span class="n" id="lscSub"></span></h3>
         <div class="contnote" style="margin:0 0 8px">Three $200 rosters built from the players still available, your own players included, at the price level you set. <b>Generate</b> after a pick to see your best plan and its roto points now. Cross a player off (✕) if you expect to lose him, and the three rosters rebuild. Roto = projected roto points against the simulated rivals.</div>
         <div class="lsc-ctl"><label>Price level <input type="range" id="lscLvl" min="60" max="130" step="5" value="100" oninput="lscLvl(this.value)"> <b id="lscLvlV">100% of Cap</b></label>
+          <label title="Leave out every player with a 30%+ chance of playing under 70% of his projected games (the injury model: his games last season and his projected games)"><input type="checkbox" id="lscSafe" onchange="lscSafe(this.checked)"> Safe: skip injury risk ≥30%</label>
+          <label>Anchor for B <input type="text" id="lscAnchor" list="lscNames" placeholder="any player, e.g. Luka Doncic" onchange="lscAnchor(this.value)"><datalist id="lscNames"></datalist> at $<input type="number" id="lscAnchorP" min="1" max="200" placeholder="auto" onchange="lscAnchorP(this.value)" title="His price in the plan; empty = price level x his Cap"></label>
           <button class="btn primary" onclick="liveScenGen()">Generate</button><button class="chipbtn" onclick="lscClear()">Clear ✕ list</button><span class="lsc-note" id="lscNote"></span></div>
         <div class="lsc-grid" id="lscOut"></div>
       </div>
@@ -1771,14 +1774,25 @@ function renderLiveRivals(){ const el=document.getElementById('liveRiv'); if(!el
 //   above 20% of your money left. Each shows roto (nbRoto, the Scenarios tab's scale), money used and left, a warning when
 //   money would stay unused, and a ✕ per player that drops him from all three. Rebuilt on Generate, and on its own after
 //   a pick while the tab is open (it yields to typing/clicking like the other background work).
-let _lsc={key:null,res:null,auto:false,level:100,excl:new Set()};
-try{ const v=JSON.parse(localStorage.getItem('almoc_lsc')||'null'); if(v){ _lsc.level=v.level||100; _lsc.excl=new Set(v.excl||[]); } }catch(e){}
-function lscSave(){ try{ localStorage.setItem('almoc_lsc',JSON.stringify({level:_lsc.level,excl:[..._lsc.excl]})); }catch(e){} }
+let _lsc={key:null,res:null,auto:false,level:100,excl:new Set(),safe:false,anchor:'',anchorP:null};
+try{ const v=JSON.parse(localStorage.getItem('almoc_lsc')||'null'); if(v){ _lsc.level=v.level||100; _lsc.excl=new Set(v.excl||[]); _lsc.safe=!!v.safe; _lsc.anchor=v.anchor||''; _lsc.anchorP=v.anchorP||null; } }catch(e){}
+function lscSave(){ try{ localStorage.setItem('almoc_lsc',JSON.stringify({level:_lsc.level,excl:[..._lsc.excl],safe:_lsc.safe,anchor:_lsc.anchor,anchorP:_lsc.anchorP})); }catch(e){} }
+// SAFE + ANCHOR (18 Oct 2026, Daniel: "add it, also allow me to design the roster by deciding who the anchor is going to
+// be"). Safe leaves out every player whose chance of playing under 70% of his projected games is 30%+ (injury model
+// buckets, the same number the Season tab shows). The anchor is forced into roster B at the typed price, or at level x Cap.
+function lscRisk(n){ const b=INJM.buckets[INJM.players[n]]; return b?Math.round(100*b.q.filter(r=>r<0.7).length/b.q.length):null; }
+function lscSafe(on){ _lsc.safe=!!on; lscSave(); liveScenGen(); }
+function lscAnchor(v){ const t=String(v||'').trim(); const q=t?PJ.find(x=>x.name===t)||PJ.find(x=>fold(x.name)===fold(t)):null; _lsc.anchor=q?q.name:''; const e=document.getElementById('lscAnchor'); if(e&&t&&!q){ e.value=''; const n=document.getElementById('lscNote'); if(n) n.textContent=`"${t}" is not a player in the kit.`; return; } lscSave(); liveScenGen(); }
+function lscAnchorP(v){ const n=Math.round(+v||0); _lsc.anchorP=n>=1?n:null; lscSave(); liveScenGen(); }
+function lscNames(){ const d=document.getElementById('lscNames'); if(!d||d.dataset.k===draftKeyNW()) return; d.dataset.k=draftKeyNW(); d.innerHTML=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0).sort((a,b)=>(b.blend||0)-(a.blend||0)).map(q=>`<option value="${q.name.replace(/"/g,'&quot;')}">`).join(''); }
+function lscOdds(ros){ const added=[]; for(const x of ros){ if(!state.picks[x.q.name]){ state.picks[x.q.name]={status:'won',mine:true,price:x.cost,whatif:true}; added.push(x.q.name); } }
+  _injMemo={key:null,res:null}; let o=null; try{ o=injuryOdds(); } finally { for(const n of added) delete state.picks[n]; _injMemo={key:null,res:null}; } return o; }
 function lscLvl(v){ _lsc.level=+v; const e=document.getElementById('lscLvlV'); if(e) e.textContent=v+'% of Cap'; lscSave(); if(_lsc.res) lscStale(); }
 function lscExcl(n){ _lsc.excl.add(n); lscSave(); liveScenGen(); }
 function lscClear(){ _lsc.excl=new Set(); lscSave(); liveScenGen(); }
 function lscStale(){ const e=document.getElementById('lscNote'); if(e) e.textContent='Changed since the last Generate - press Generate.'; _lsc.res=_lsc.res?{..._lsc.res,stale:true}:null; }
-function lscRun(opts){ const sv=window.__nbIter, ss=window.__nbSeed, sw=window.__nbWarm; window.__nbLive={level:_lsc.level/100,excl:_lsc.excl,maxCost:opts.maxCost||0};
+function lscRun(opts){ const sv=window.__nbIter, ss=window.__nbSeed, sw=window.__nbWarm; const excl=new Set(_lsc.excl); if(_lsc.safe) for(const q of PJ){ const r=lscRisk(q.name); if(r!=null&&r>=30&&q.name!==opts.force) excl.add(q.name); }
+  window.__nbLive={level:_lsc.level/100,excl,maxCost:opts.maxCost||0};
   window.__nbIter=4000; window.__nbSeed=draftKeyNW()+'|live'+_lsc.level+(opts.maxCost||0)+(opts.force||''); window.__nbWarm=opts.warm||null; let E, had=null;
   if(opts.force){ had=state.picks[opts.force]; state.picks[opts.force]={status:'won',mine:true,price:opts.forcePrice,whatif:true}; }
   try{ E=nbEngine({lite:true}); } finally { window.__nbLive=null; window.__nbIter=sv; window.__nbSeed=ss; window.__nbWarm=sw; if(opts.force){ if(had) state.picks[opts.force]=had; else delete state.picks[opts.force]; } }
@@ -1792,25 +1806,34 @@ function liveScenGen(){ const out=document.getElementById('lscOut'); if(!out) re
   const C=lscRun({maxCost:Math.max(1,Math.round(0.2*ms.left))});
   const A=lscRun({warm:[C.ros.map(x=>x.q.name)]});
   const inA=new Set(A.ros.map(x=>x.q.name));
-  const big=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0&&!q.over&&!_lsc.excl.has(q.name)&&typeof q.cap==='number'&&q.cap>0&&!inA.has(q.name))
+  lscNames();
+  let big=null, bigNote='';
+  if(_lsc.anchor){ const q=pjOf(_lsc.anchor); const st=state.picks[_lsc.anchor];
+    if(!q||isKeeper(_lsc.anchor)||(st&&!st.whatif)) bigNote=`${_lsc.anchor} is ${st&&st.mine?'already yours':st?'gone':'not available'}: B uses the best name left instead.`;
+    else { const c=_lsc.anchorP||Math.max(1,Math.round((typeof q.cap==='number'&&q.cap>0?q.cap:usualPrice(q))*lvl)); if(c>maxB) bigNote=`${_lsc.anchor} at $${c} is above your max bid of $${maxB}: B uses the best name left instead.`; else big={q,c,anchor:true}; } }
+  if(!big) big=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0&&!q.over&&!_lsc.excl.has(q.name)&&!(_lsc.safe&&(lscRisk(q.name)||0)>=30)&&typeof q.cap==='number'&&q.cap>0&&!inA.has(q.name))
     .map(q=>({q,c:Math.max(1,Math.round(q.cap*lvl))})).filter(x=>x.c<=maxB&&x.c>=8).sort((a,b)=>(b.q.blend||0)-(a.q.blend||0))[0];
   const B=big?lscRun({force:big.q.name,forcePrice:big.c,warm:[A.ros.map(x=>x.q.name)]}):null;
+  if(bigNote){ const n=document.getElementById('lscNote'); if(n) n.textContent=bigNote; }
   _lsc.res={key:draftKeyNW(),A,B,C,big}; _lsc.auto=true; lscRender(); }
 function lscRender(){ const out=document.getElementById('lscOut'); const R=_lsc.res; if(!out||!R||!R.A) return; const ms=myStatus();
   const mine=Object.entries(state.picks).filter(([n,s])=>s.status==='won'&&s.mine&&!s.whatif).map(([n,s])=>({q:pjOf(n),cost:+s.price||0,mine:true})).filter(x=>x.q);
   const card=(title,sub,E)=>{ if(!E) return `<div class="lsc-card"><h4>${title}</h4><div class="contnote">No affordable big name left (none at $8+ within your max bid).</div></div>`;
     const all=mine.concat(E.ros); const roto=nbRoto(all.map(x=>x.q)); const leftAfter=ms.left-E.spent; const cats=nbExpCats(nbCats(all.reduce((acc,x)=>{const w=nbVec(x.q); return acc.map((y,i)=>y+w[i]);},new Array(12).fill(0))));
-    const rows=mine.map(x=>`<tr class="mine"><td>${x.q.name}</td><td class="p">${x.q.ypos||''}</td><td class="n">$${x.cost}</td><td class="p">yours</td><td></td></tr>`).join('')
-      +E.ros.slice().sort((a,b)=>b.cost-a.cost).map(x=>{ const esc=x.q.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return `<tr><td>${plink(x.q.name)}${x.forced?' <span class="p">(around him)</span>':''}</td><td class="p">${x.q.ypos||''}</td><td class="n"><b>$${x.cost}</b></td><td class="p">cap $${x.cap}</td><td><button class="lsc-x" title="Cross him off: rebuild without him" onclick="lscExcl('${esc}')">✕</button></td></tr>`; }).join('');
+    const rk=n=>{ const r=lscRisk(n); return r==null?'<td class="risk">—</td>':`<td class="risk ${r>=30?'hi':''}" title="chance of playing under 70% of his projected games">${r}%</td>`; };
+    const rows=mine.map(x=>`<tr class="mine"><td>${x.q.name}</td><td class="p">${x.q.ypos||''}</td><td class="n">$${x.cost}</td><td class="p">yours</td>${rk(x.q.name)}<td></td></tr>`).join('')
+      +E.ros.slice().sort((a,b)=>b.cost-a.cost).map(x=>{ const esc=x.q.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return `<tr><td>${plink(x.q.name)}${x.forced?' <span class="p">(anchor)</span>':''}</td><td class="p">${x.q.ypos||''}</td><td class="n"><b>$${x.cost}</b></td><td class="p">cap $${x.cap}</td>${rk(x.q.name)}<td><button class="lsc-x" title="Cross him off: rebuild without him" onclick="lscExcl('${esc}')">✕</button></td></tr>`; }).join('');
+    const o=lscOdds(E.ros); const odds=o?`<div class="odds">With injuries: 1st <b>${o.p1}%</b> · top 3 <b>${o.p3}%</b> · bottom 5 <b style="color:${o.b5>=15?'var(--danger)':'inherit'}">${o.b5}%</b> · likely #${o.med} · ${o.lost} games lost on average</div>`:'';
     const warn=leftAfter>10?`<div class="money bad">Leaves $${leftAfter} unused: raise the price level, or bid above plan on the names you want.</div>`:`<div class="money">Uses $${E.spent} of your $${ms.left} · $${leftAfter} left · ${E.ros.length} player${E.ros.length>1?'s':''} for ${ms.need} open slot${ms.need>1?'s':''}</div>`;
     const LAB={PTS:'PTS','3PTM':'3PM',REB:'REB',AST:'AST',ST:'STL',BLK:'BLK','FG%':'FG%','FT%':'FT%',TO:'TO'};
-    return `<div class="lsc-card"><h4>${title}</h4><div class="p">${sub}</div><div class="roto">${roto.tot.toFixed(0)} <small>of 144 roto · ≈${E.exp.toFixed(0)} with normal luck</small></div>${warn}<table>${rows}</table>
+    return `<div class="lsc-card"><h4>${title}</h4><div class="p">${sub}</div><div class="roto">${roto.tot.toFixed(0)} <small>of 144 roto · ≈${E.exp.toFixed(0)} with normal luck</small></div>${odds}${warn}<table>${rows}</table>
       <div class="lsc-cats">${NB_CATS.map(k=>`${LAB[k]} ${cats[k].toFixed(1)}`).join(' · ')}</div></div>`; };
   const lvl=_lsc.level;
-  out.innerHTML=card('A · Best roto',`every player at ${lvl}% of his Cap`,R.A)+card(R.big?`B · Around ${R.big.q.name}`:'B · Around the best name left',R.big?`${R.big.q.name} at $${R.big.c}, the rest planned around him`:'',R.B)+card('C · Depth',`nobody above $${Math.max(1,Math.round(0.2*ms.left))} (20% of your money left)`,R.C);
-  const sub=document.getElementById('lscSub'); if(sub) sub.textContent=`$${ms.left} left · ${ms.need} open slot${ms.need>1?'s':''}${_lsc.excl.size?` · ${_lsc.excl.size} crossed off`:''}${R.stale?' · changed since Generate':''}`;
+  out.innerHTML=card('A · Best roto',`every player at ${lvl}% of his Cap${_lsc.safe?' · safe':''}`,R.A)+card(R.big?`B · Around ${R.big.q.name}${R.big.anchor?' (your anchor)':''}`:'B · Around the best name left',R.big?`${R.big.q.name} at $${R.big.c}, the rest planned around him`:'',R.B)+card('C · Depth',`nobody above $${Math.max(1,Math.round(0.2*ms.left))} (20% of your money left)${_lsc.safe?' · safe':''}`,R.C);
+  const sub=document.getElementById('lscSub'); if(sub) sub.textContent=`$${ms.left} left · ${ms.need} open slot${ms.need>1?'s':''}${_lsc.safe?' · safe on':''}${_lsc.anchor?` · anchor ${_lsc.anchor}`:''}${_lsc.excl.size?` · ${_lsc.excl.size} crossed off`:''}${R.stale?' · changed since Generate':''}`;
   const note=document.getElementById('lscNote'); if(note&&R.stale) note.textContent='Changed since the last Generate - press Generate.'; }
 function renderLiveScen(){ const e=document.getElementById('lscLvl'); if(e&&+e.value!==_lsc.level){ e.value=_lsc.level; const v=document.getElementById('lscLvlV'); if(v) v.textContent=_lsc.level+'% of Cap'; }
+  const sf=document.getElementById('lscSafe'); if(sf) sf.checked=_lsc.safe; const an=document.getElementById('lscAnchor'); if(an&&document.activeElement!==an) an.value=_lsc.anchor; const ap=document.getElementById('lscAnchorP'); if(ap&&document.activeElement!==ap) ap.value=_lsc.anchorP||''; lscNames();
   const R=_lsc.res; if(!R) { const sub=document.getElementById('lscSub'); if(sub){ const ms=myStatus(); sub.textContent=`$${ms.left} left · ${ms.need} open slots · press Generate`; } return; }
   if(R.key!==draftKeyNW()){ R.stale=true; lscRender(); const pane=document.querySelector('.tabpane[data-pane="scen"]');
     if(_lsc.auto&&pane&&!pane.hidden){ const go=()=>{ const w=bgWait(); if(w>0){ setTimeout(go,w); return; } if(_lsc.res&&_lsc.res.key!==draftKeyNW()) liveScenGen(); }; setTimeout(go,300); } }
