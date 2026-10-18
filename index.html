@@ -836,6 +836,7 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .lsc-card h4{margin:0;font-size:14px;color:var(--text)} .lsc-card .roto{font-size:22px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums} .lsc-card .roto small{font-size:11px;font-weight:400;color:var(--text-faint);margin-left:6px}
 .lsc-card .money{font-size:12px;color:var(--text-dim)} .lsc-card .money.bad{color:var(--danger);font-weight:600}
 .lsc-card table{width:100%;border-collapse:collapse} .lsc-card td{padding:3px 4px;border-bottom:1px solid var(--line);vertical-align:middle} .lsc-card td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap} .lsc-card td.p{color:var(--text-faint);font-size:11px} .lsc-card tr.mine td{color:var(--text-faint);font-style:italic}
+.lsc-below{display:inline-block;margin-left:4px;padding:0 5px;border-radius:8px;font-size:10px;font-weight:700;background:var(--danger);color:#fff;vertical-align:1px} .lsc-card tr.below td{opacity:.8}
 .lsc-gem{display:inline-block;margin-left:4px;padding:0 5px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;background:var(--gold);color:#1a1200;vertical-align:1px} .lsc-card .gems{margin:4px 0 2px}
 .lsc-x{border:1px solid var(--line);background:none;color:var(--text-faint);border-radius:5px;cursor:pointer;font-size:11px;padding:0 5px;line-height:16px} .lsc-x:hover{color:var(--danger);border-color:var(--danger)}
 .lsc-cats{font-size:11px;color:var(--text-faint);line-height:1.5}
@@ -1922,9 +1923,10 @@ function lscRender(){ const out=document.getElementById('lscOut'); const R=_lsc.
     const all=mine.concat(E.ros); const roto=nbRoto(all.map(x=>x.q)); const leftAfter=ms.left-E.spent; const cats=nbExpCats(nbCats(all.reduce((acc,x)=>{const w=nbVec(x.q); return acc.map((y,i)=>y+w[i]);},new Array(12).fill(0))));
     const rk=n=>{ const r=lscRisk(n); return r==null?'<td class="risk">—</td>':`<td class="risk ${r>=30?'hi':''}" title="chance of playing under 70% of his projected games">${r}%</td>`; };
     const rows=mine.map(x=>`<tr class="mine"><td>${x.q.name}</td><td class="p">${x.q.ypos||''}</td><td class="n">$${x.cost}</td><td class="p">yours</td>${rk(x.q.name)}<td></td></tr>`).join('')
-      +E.ros.slice().sort((a,b)=>b.cost-a.cost).map(x=>{ const esc=x.q.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return `<tr><td>${plink(x.q.name)}${lscGemTag(x.q.name)}${x.forced?' <span class="p">(set)</span>':''}</td><td class="p">${x.q.ypos||''}</td><td class="n"><b>$${x.cost}</b></td><td class="p">cap $${x.cap}${(()=>{ const w=winProb(x.q.name,x.cost); return w?` · win ${w.p}%`:''; })()}</td>${rk(x.q.name)}<td><button class="lsc-x" title="Cross him off: rebuild without him" onclick="lscExcl('${esc}')">✕</button></td></tr>`; }).join('');
+      +E.ros.slice().sort((a,b)=>b.cost-a.cost).map(x=>{ const esc=x.q.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return `<tr${x.below?' class="below"':''}><td>${plink(x.q.name)}${lscGemTag(x.q.name)}${x.forced?' <span class="p">(set)</span>':''}${x.below?' <span class="lsc-below" title="Nobody left at your chance fits the money, so this slot takes the best $1 body anyway; his real chance at $1 is in the next column">below chance</span>':''}</td><td class="p">${x.q.ypos||''}</td><td class="n"><b>$${x.cost}</b></td><td class="p">cap $${x.cap}${(()=>{ const w=winProb(x.q.name,x.cost); return w?` · win ${w.p}%`:''; })()}</td>${rk(x.q.name)}<td><button class="lsc-x" title="Cross him off: rebuild without him" onclick="lscExcl('${esc}')">✕</button></td></tr>`; }).join('');
     const o=lscOdds(E.ros); const odds=o?`<div class="odds">With injuries: 1st <b>${o.p1}%</b> · top 3 <b>${o.p3}%</b> · bottom 5 <b style="color:${o.b5>=15?'var(--danger)':'inherit'}">${o.b5}%</b> · likely #${o.med} · ${o.lost} games lost on average</div>`:'';
-    const short=E.ros.length<ms.need?`<div class="money bad">${ms.need-E.ros.length} slot${ms.need-E.ros.length>1?'s':''} unfilled: nobody left whose ${_lsc.basis==='win'?`${_lsc.win}%-chance price`:'price'} fits the money - lower the chance, or pick $1 bodies on the $1-3 buys tab (their chance at $1 is listed there).</div>`:'';
+    const nBelow=E.ros.filter(x=>x.below).length; const belowNote=nBelow?`<div class="money bad">${nBelow} end filler${nBelow>1?'s':''} below your chance: nobody left at ${_lsc.basis==='win'?_lsc.win+'%':'this price'} fits the money, so those slots take the best $1 bodies (their real chance at $1 is in the row).</div>`:'';
+    const short=belowNote+(E.ros.length<ms.need?`<div class="money bad">${ms.need-E.ros.length} slot${ms.need-E.ros.length>1?'s':''} unfilled: nobody left whose ${_lsc.basis==='win'?`${_lsc.win}%-chance price`:'price'} fits the money - lower the chance, or pick $1 bodies on the $1-3 buys tab (their chance at $1 is listed there).</div>`:'');
     const warn=short+(leftAfter>10?`<div class="money bad">Leaves $${leftAfter} unused: raise the price level, or bid above plan on the names you want.</div>`:`<div class="money">Uses $${E.spent} of your $${ms.left} · $${leftAfter} left · ${E.ros.length} player${E.ros.length>1?'s':''} for ${ms.need} open slot${ms.need>1?'s':''}</div>`);
     const LAB={PTS:'PTS','3PTM':'3PM',REB:'REB',AST:'AST',ST:'STL',BLK:'BLK','FG%':'FG%','FT%':'FT%',TO:'TO'};
     const gems=E.ros.filter(x=>lscGems().some(g=>g.name===x.q.name)); const gemLine=`<div class="p gems">${gems.length?`${gems.length} gem${gems.length>1?'s':''}: ${gems.map(x=>x.q.name).join(', ')}`:'no gems from the Gems &amp; sleepers tab'}</div>`;
@@ -4004,9 +4006,10 @@ function nbEngine(opt){ const lite=!!(opt&&opt.lite);   // lite: just the best p
   // $1 END FILLERS: players outside the pool whose usual price is $1-2. On the win-chance basis (18 Oct 2026, Daniel:
   // "this dollar should mean the 90% winning price") each one costs his chance price, and a body whose chance price is
   // above $2 is not a $1 body (Herb Jones: usual $2, 90% price $15; he showed as a $1 buy).
-  const dollar=PJ.filter(q=>!state.picks[q.name]&&!isKeeper(q.name)&&(q.g||0)>0&&!byN.has(q.name)&&usualPrice(q)<=2&&!(LS&&LS.excl.has(q.name)))
-    .map(q=>({q,cap:1,cost:(LS&&LS.price)?Math.max(1,LS.price.get(q.name)||1):1,v:nbVec(q)})).filter(x=>x.cost<=2)
-    .sort((a,b)=>((b.q.blend||0)-(a.q.blend||0))||((b.q.punt||0)-(a.q.punt||0))||(((b.q.g||0)*(b.q.min||0))-((a.q.g||0)*(a.q.min||0)))).slice(0,40);
+  const dollarAll=PJ.filter(q=>!state.picks[q.name]&&!isKeeper(q.name)&&(q.g||0)>0&&!byN.has(q.name)&&usualPrice(q)<=2&&!(LS&&LS.excl.has(q.name)))
+    .map(q=>({q,cap:1,cost:(LS&&LS.price)?Math.max(1,LS.price.get(q.name)||1):1,v:nbVec(q)}))
+    .sort((a,b)=>((b.q.blend||0)-(a.q.blend||0))||((b.q.punt||0)-(a.q.punt||0))||(((b.q.g||0)*(b.q.min||0))-((a.q.g||0)*(a.q.min||0))));
+  const dollar=dollarAll.filter(x=>x.cost<=2).slice(0,40);
   const cand=pool.slice(0,90).concat(dollar.slice(0,30));
   const baseV=mine.reduce((acc,q)=>{ const v=nbVec(q); return acc.map((x,i)=>x+v[i]); }, new Array(12).fill(0));
   const slotObj=q=>({...q,ypos:Array.isArray(q.ypos)?q.ypos:String(q.ypos||'').split(',').map(s=>s.trim()).filter(Boolean)});
@@ -4018,7 +4021,10 @@ function nbEngine(opt){ const lite=!!(opt&&opt.lite);   // lite: just the best p
   // a full plan from a seed (affordable seed players kept, keeping $1 per later slot; the rest greedy), then single-swap polish
   const fillFrom=(seed,excl)=>{ const ex=new Set(excl||[]); const ros=[]; let money=left;
     for(const x of seed){ if(ros.length>=need) break; if(!x||ex.has(x.q.name)) continue; if(x.cost>money-(need-ros.length-1)) continue; ros.push(x); ex.add(x.q.name); money-=x.cost; }
-    while(ros.length<need){ const reserve=need-ros.length-1; let x=pool.find(y=>!ex.has(y.q.name)&&y.cost<=money-reserve); if(!x) x=dollar.find(y=>!ex.has(y.q.name)&&(!LS||y.cost<=money-reserve)); if(!x) break; /* the money check only for live runs: the normal plan's fillers are all $1 */ ros.push(x); ex.add(x.q.name); money-=x.cost; }
+    while(ros.length<need){ const reserve=need-ros.length-1; let x=pool.find(y=>!ex.has(y.q.name)&&y.cost<=money-reserve); if(!x) x=dollar.find(y=>!ex.has(y.q.name)&&(!LS||y.cost<=money-reserve)); /* the money check only for live runs: the normal plan's fillers are all $1 */
+      /* live runs (18 Oct 2026 pre-draft audit): when nobody at the chosen chance fits, the slot takes the best $1 body anyway, flagged "below your chance" so the plan is never 2 players for 9 slots */
+      if(!x&&LS&&LS.price&&money-reserve>=1){ const z=dollarAll.find(y=>!ex.has(y.q.name)); if(z) x={...z,cost:1,below:true}; }
+      if(!x) break; ros.push(x); ex.add(x.q.name); money-=x.cost; }
     return {ros,money,ex}; };
   const polish=(P,rounds)=>{ let cur=evalR(P.ros), r=0, improved=true;
     while(improved&&r<rounds){ improved=false; r++;
