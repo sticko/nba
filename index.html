@@ -2432,8 +2432,8 @@ function renderVerdict(){
   const box=document.getElementById('vHit'); const dr=document.getElementById('vDrawer');
   if(!q){ box.className='vhit'; box.innerHTML=''; if(dr) dr.hidden=true; return; }
   if(dr) dr.hidden=false; { const pd=document.getElementById('pDrawer'); if(pd) pd.hidden=true; }
-  const hit=findHit(q);
-  if(!hit){ box.className='vhit on'; const pq=pjHit(q); box.innerHTML=pq?pjCallHTML(pq):'<div class="vcall meh">Not in our data — $1 filler at most. Don\'t spend real money.</div>'; return; }
+  let hit=findHit(q);
+  if(!hit){ const pq=pjHit(q); if(pq) hit=pjAsHit(pq); else { box.className='vhit on'; box.innerHTML='<div class="vcall meh">Not in our data — $1 filler at most. Don\'t spend real money.</div>'; return; } }
   const st=state.picks[hit.name];
   const on=slotFor(hit.name);
   const pol=policyFor(hit);
@@ -2514,7 +2514,7 @@ function renderVerdict(){
     <div class="vp">
     <div class="vhead">${faceBig(hit.name)}<div class="vtitle"><div class="vname">${hit.name}${gemTag(hit.name)}</div>
     <div class="vmeta1">${hit.team||''} · ${hit.pos||''}${on?' · <b>on your card</b> '+seatPill(on.slot,true):''}</div>
-    <div class="vmeta">${hit.g||'?'}g projected · <span style="color:var(--text-dim)">ALMOC ${hist2Txt(hit)||'undrafted 2024 & 2025'}</span></div>${draftLine(hit.name)}</div><div class="vacts">${actHTML}</div></div>
+    <div class="vmeta">${hit.g||'?'}g projected · <span style="color:var(--text-dim)">ALMOC ${hist2Txt(hit)||'undrafted 2024 & 2025'}</span>${hit.offBoard?' · <span title="Not one of the 288 names in the simulated auctions, so no win-chance ring and no simulated price band; the pay band is the kit\'s estimate">off the 288-name board</span>':''}</div>${draftLine(hit.name)}</div><div class="vacts">${actHTML}</div></div>
     ${(()=>{ const sp=String(call).split(' — '), chip=sp.length>1?sp[0]:'Your call', big=sp.length>1?sp.slice(1).join(' — '):call;
       const lo=hit.payLo, hi=hit.payHi; let mid='';
       if(!st && !hit.keeper && eff>0){ const w=winProb(hit.name,eff);
@@ -4217,6 +4217,14 @@ function findHit(q){ if(!q) return null; return BOARD.filter(p=>fold(p.name).inc
 function currentHit(){ const q=fold(document.getElementById('vInput').value.trim()); return findHit(q)||pjHit(q); }
 // a player in the kit but not on the 288-name draft board: exact name first, then the only name containing it
 function pjHit(q){ if(!q) return null; const ex=PJ.find(x=>fold(x.name)===q); if(ex) return ex; const c=PJ.filter(x=>fold(x.name).includes(q)); return c.length===1?c[0]:null; }
+// OFF-BOARD PLAYERS GET THE FULL PROFILE (18 Oct 2026, Daniel on Khaman Maluach's call: "why no details? validate other
+// as well"). The 288-name board (board_export.json) feeds the full call; a player only in proj_export (Maluach, Blend
+// $12; Paul Reed, $6 - the only two at $4+) fell to the short pjCallHTML card. pjAsHit() shapes his PJ row like a board
+// row (team, ypos array, rates map, pay band, ALMOC history) so renderVerdict runs the same profile for him.
+function pjAsHit(q){ const yp=Array.isArray(q.ypos)?q.ypos:String(q.ypos||'').split(/[,/]/).map(x=>x.trim()).filter(Boolean);
+  const h2={}; if(q.a24>0) h2['2024-25']={price:q.a24,mgr:q.a24m||''}; if(q.a25>0) h2['2025-26']={price:q.a25,mgr:q.a25m||''};
+  return {name:q.name,team:q.tm||'',pos:yp.join(','),ypos:yp,age:q.age,ageT:q.age,g:q.g||0,yahoo:q.y||0,yahooAvg:(q.ya>0?q.ya:null),punt:q.punt||0,blend:q.blend||0,payLo:q.lo,payHi:q.hi,lo:q.lo,hi:q.hi,cap:(typeof q.cap==='number'?q.cap:0),keeper:!!q.keep,tags:'',note:'',projMin:q.min,
+    rates:{'p/g':q.p||0,'3/g':q.tp||0,'r/g':q.r||0,'a/g':q.a||0,'s/g':q.s||0,'b/g':q.b||0,'to/g':q.to||0,'fg%':q.fg||0,'fga/g':q.fga||0,'ft%':q.ft||0,'fta/g':q.fta||0},hist2:Object.keys(h2).length?h2:null,offBoard:true}; }
 function pjCallHTML(q){ const st=state.picks[q.name], nmJ=q.name.replace(/'/g,"\\'"), mine=st&&st.status==='won'&&st.mine;
   const cap=typeof q.cap==='number'?q.cap:0, gi=gemInfo(q.name);
   const call=st?(mine?`ALREADY YOURS — $${st.price}`:'GONE'):((q.blend||0)<=0?'$1 ONLY — end filler':q.over?`ONLY IF CHEAP — up to $${cap}`:(cap>0?`BID — up to $${cap}`:'NO CAP'));
