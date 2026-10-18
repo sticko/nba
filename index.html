@@ -599,14 +599,14 @@ table.standtab tr:nth-child(even) td{background:var(--zebra-tint)}
 .dol-num .chipbtn{margin-left:auto}
 .dol-note{font-size:10.5px;color:var(--text-faint);white-space:normal}
 .projwrap{overflow:auto;max-height:74vh;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow-anchor:none}   /* anchoring re-scrolled the box after a filter shrank it, hiding the only result */
-table.proj{border-collapse:separate;border-spacing:0;width:100%;font-size:11.5px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
-table.proj th{position:sticky;top:0;z-index:2;background:var(--surface-2);border-bottom:1px solid var(--line);padding:7px 5px;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);cursor:pointer;white-space:nowrap;text-align:right}
+table.proj{border-collapse:separate;border-spacing:0;width:100%;font-size:13.8px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}   /* 18 Oct 2026, Daniel during the draft: "make list of player font 20% bigger" - every font-size on table.proj rules x1.2 */
+table.proj th{position:sticky;top:0;z-index:2;background:var(--surface-2);border-bottom:1px solid var(--line);padding:7px 5px;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:11.4px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);cursor:pointer;white-space:nowrap;text-align:right}
 table.proj th:first-child,table.proj th.l{text-align:left}
 table.proj th.sorted{color:var(--accent)}
 table.proj td{padding:5px 5px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 table.proj tr:nth-child(even) td{background:var(--zebra)}   /* beats the sticky cells' surface (0,2,2); loses to won/hover rules below */
 table.proj td.l{text-align:left;font-family:'IBM Plex Sans',system-ui,sans-serif}
-table.proj td.nm{font-weight:600;font-size:12px;position:sticky;left:0;background:var(--surface);z-index:1}
+table.proj td.nm{font-weight:600;font-size:14.4px;position:sticky;left:0;background:var(--surface);z-index:1}
 table.proj tr:hover td{background:var(--row-hover)}
 table.proj tr:hover td.nm{background:var(--row-hover)}
 table.proj tr.oncard td.nm{box-shadow:inset 3px 0 0 var(--good)}
