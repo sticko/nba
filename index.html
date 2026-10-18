@@ -829,7 +829,7 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .lsc-ctl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:10px;font-size:13px;color:var(--text-dim)} .lsc-ctl label{display:flex;align-items:center;gap:6px} .lsc-ctl input[type=text]{width:200px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text)} .lsc-ctl input[type=number]{width:58px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text)} .lsc-ctl input[type=checkbox]{accent-color:var(--accent)}
 .lsc-card td.risk{text-align:right;font-size:11px;color:var(--text-faint);white-space:nowrap} .lsc-card td.risk.hi{color:var(--danger);font-weight:700} .lsc-card .odds{font-size:12px;color:var(--text-dim)} .lsc-card .odds b{color:var(--text)} .lsc-ctl input[type=range]{width:180px;accent-color:var(--accent)} .lsc-ctl b{color:var(--text);min-width:110px}
 .lsc-note{font-size:12px;color:var(--gold)}
-.lsc-prog{display:inline-flex;align-items:center;gap:8px;margin-left:10px;font-size:12px;color:var(--text-dim)} .lsc-prog .trk{display:block;width:140px;height:7px;border-radius:4px;background:var(--line);overflow:hidden} .lsc-prog .trk i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s} .lsc-prog b{color:var(--text)}
+.lsc-prog{display:inline-flex;align-items:center;gap:8px;margin-left:10px;font-size:12px;color:var(--text-dim)} .lsc-prog[hidden]{display:none} .lsc-prog .trk{display:block;width:140px;height:7px;border-radius:4px;background:var(--line);overflow:hidden} .lsc-prog .trk i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s} .lsc-prog b{color:var(--text)}
 #lscOut.stale{opacity:.45;filter:grayscale(.4)} #lscOut{transition:opacity .3s}
 .lsc-grid{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x proximity} .lsc-grid>.lsc-card{flex:0 0 340px;scroll-snap-align:start}
 .lsc-card{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--text-dim)}
@@ -1860,7 +1860,7 @@ let _lscGen=0, _lscBusy=false;   // _lscBusy: the background queues (Worth to yo
 // Yield between plan steps through a MessageChannel, not setTimeout: a timer tick costs 75-90 ms on this page (timer
 // throttling), a message task well under 1 ms, and the browser still gets a paint opportunity between tasks. Each paint
 // of this page costs about 150 ms (style + layout of the whole document), so the chain yields only twice: after
-// C+A and after B+B2+D. Nine yields made the plans 2 s instead of 0.5 s.
+// C+A, B+B2, D+E and H+F (four paints; nine yields made the plans 2 s instead of 0.5 s).
 const _lscYield=(()=>{ const mc=new MessageChannel(); let cb=null; mc.port1.onmessage=()=>{ const f=cb; cb=null; if(f) f(); }; return f=>{ cb=f; mc.port2.postMessage(0); }; })();
 // The nine plans run one per timer tick (18 Oct 2026) so the page can paint the progress bar between them; a newer call
 // cancels an older chain through _lscGen. Cards stay on screen, greyed as stale, until the new set is ready.
@@ -1869,7 +1869,7 @@ function liveScenGen(){ const out=document.getElementById('lscOut'); if(!out) re
   const gen=++_lscGen, steps=[]; let C,A,inA,mine=null,bigNote='',big,B,B2,warmA,D=null,two=null,E,H,F,G,I;
   const step=f=>steps.push(f);
   const finish=()=>{ _lsc.res={key:draftKeyNW(),A,B,B2,C,D,E,F,G,H,I,hForces,big,mine,two}; _lsc.auto=true; _lscBusy=false; lscRender(); calcSet('lsc',steps.length,steps.length); worthPump(); rpmPump(); };
-  const run=i=>{ if(gen!==_lscGen) return; if(i>=steps.length){ finish(); return; } try{ steps[i](); }catch(e){ _lscBusy=false; throw e; } if(i===1||i===4){ calcSet('lsc',i+1,steps.length+1); _lscYield(()=>run(i+1)); } else run(i+1); };
+  const run=i=>{ if(gen!==_lscGen) return; if(i>=steps.length){ finish(); return; } try{ steps[i](); }catch(e){ _lscBusy=false; throw e; } if(i===1||i===3||i===5||i===7){ calcSet('lsc',i+1,steps.length+1); _lscYield(()=>run(i+1)); } else run(i+1); };
   _lscBusy=true;
   out.classList.add('stale');
   const lvl=_lsc.level/100, maxB=ms.left-(ms.need-1);
