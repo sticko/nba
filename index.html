@@ -831,7 +831,7 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .lsc-x{border:1px solid var(--line);background:none;color:var(--text-faint);border-radius:5px;cursor:pointer;font-size:11px;padding:0 5px;line-height:16px} .lsc-x:hover{color:var(--danger);border-color:var(--danger)}
 .lsc-cats{font-size:11px;color:var(--text-faint);line-height:1.5}
 .slp-t{width:100%;border-collapse:collapse;font-size:12.5px} .slp-t th{text-align:left;font-weight:600;color:var(--text-faint);font-size:11px;padding:4px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
-.slp-t td{padding:5px 8px;border-bottom:1px solid var(--line);color:var(--text-dim);vertical-align:top} .slp-t td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap} .slp-t td b{color:var(--text)} .slp-t tr.taken td{opacity:.5}
+.slp-t th{text-align:center} .slp-t td{padding:5px 8px;border-bottom:1px solid var(--line);color:var(--text-dim);vertical-align:middle;text-align:center} .slp-t td.n{font-variant-numeric:tabular-nums;white-space:nowrap} .slp-t td b{color:var(--text)} .slp-t tr.taken td{opacity:.5}
 .slp-t .ok{color:var(--good);font-weight:700} .slp-t .warn{color:var(--gold);font-weight:700} .slp-t .bad{color:var(--danger);font-weight:700} .slp-t .risk.hi{color:var(--danger);font-weight:700}
 .mgr-sumn{font-size:11.5px;color:var(--text-faint);margin-top:6px}
 .mgr-chs{display:flex;flex-wrap:wrap;gap:4px}
@@ -1210,8 +1210,8 @@ details.method[open] summary:after{content:'\2212'}
     <div class="card">
       <div class="lsc" id="liveScen">
         <h3>Live scenarios from what is left <span class="n" id="lscSub"></span></h3>
-        <div class="contnote" style="margin:0 0 8px">Three $200 rosters built from the players still available, your own players included, at the price level you set. <b>Generate</b> after a pick to see your best plan and its roto points now. Cross a player off (✕) if you expect to lose him, and the three rosters rebuild. Roto = projected roto points against the simulated rivals.</div>
-        <div class="lsc-ctl"><label>Price level <input type="range" id="lscLvl" min="60" max="130" step="5" value="100" oninput="lscLvl(this.value)"> <b id="lscLvlV">100% of Cap</b></label>
+        <div class="contnote" style="margin:0 0 8px">Seven $200 rosters built from the players still available, your own players included, at the price level you set: a percentage of his Cap, or of his Y! Avg$ (what other Yahoo leagues paid). This year's Yahoo averages run far below this room for $5-15 players, so on that basis no price goes below the room's low price (Pay ~ low); players Yahoo prices at $0 use their Cap. <b>Generate</b> after a pick to see your best plan and its roto points now. Cross a player off (✕) if you expect to lose him, and the three rosters rebuild. Roto = projected roto points against the simulated rivals.</div>
+        <div class="lsc-ctl"><label>Price level <input type="range" id="lscLvl" min="60" max="130" step="5" value="100" oninput="lscLvl(this.value)"> <b id="lscLvlV">100%</b> <select id="lscBasis" onchange="lscBasis(this.value)" title="What the percentage applies to"><option value="cap">of Cap</option><option value="ya">of Y! Avg$ (never below the room's low price)</option></select></label>
           <label title="Leave out every player with a 30%+ chance of playing under 70% of his projected games (the injury model: his games last season and his projected games)"><input type="checkbox" id="lscSafe" onchange="lscSafe(this.checked)"> Safe: skip injury risk ≥30%</label>
           <label>Anchor for B <input type="text" id="lscAnchor" list="lscNames" placeholder="any player, e.g. Luka Doncic" onchange="lscAnchor(this.value)"><datalist id="lscNames"></datalist> at $<input type="number" id="lscAnchorP" min="1" max="200" placeholder="auto" onchange="lscAnchorP(this.value)" title="His price in the plan; empty = price level x his Cap"></label>
           <button class="btn primary" onclick="liveScenGen()">Generate</button><button class="chipbtn" onclick="lscClear()">Clear ✕ list</button><span class="lsc-note" id="lscNote"></span></div>
@@ -1784,9 +1784,14 @@ function renderLiveRivals(){ const el=document.getElementById('liveRiv'); if(!el
 //   above 20% of your money left. Each shows roto (nbRoto, the Scenarios tab's scale), money used and left, a warning when
 //   money would stay unused, and a ✕ per player that drops him from all three. Rebuilt on Generate, and on its own after
 //   a pick while the tab is open (it yields to typing/clicking like the other background work).
-let _lsc={key:null,res:null,auto:false,level:100,excl:new Set(),safe:false,anchor:'',anchorP:null};
-try{ const v=JSON.parse(localStorage.getItem('almoc_lsc')||'null'); if(v){ _lsc.level=v.level||100; _lsc.excl=new Set(v.excl||[]); _lsc.safe=!!v.safe; _lsc.anchor=v.anchor||''; _lsc.anchorP=v.anchorP||null; } }catch(e){}
-function lscSave(){ try{ localStorage.setItem('almoc_lsc',JSON.stringify({level:_lsc.level,excl:[..._lsc.excl],safe:_lsc.safe,anchor:_lsc.anchor,anchorP:_lsc.anchorP})); }catch(e){} }
+let _lsc={key:null,res:null,auto:false,level:100,excl:new Set(),safe:false,anchor:'',anchorP:null,basis:'cap'};
+try{ const v=JSON.parse(localStorage.getItem('almoc_lsc')||'null'); if(v){ _lsc.level=v.level||100; _lsc.excl=new Set(v.excl||[]); _lsc.safe=!!v.safe; _lsc.anchor=v.anchor||''; _lsc.anchorP=v.anchorP||null; _lsc.basis=v.basis==='ya'?'ya':'cap'; } }catch(e){}
+function lscSave(){ try{ localStorage.setItem('almoc_lsc',JSON.stringify({level:_lsc.level,excl:[..._lsc.excl],safe:_lsc.safe,anchor:_lsc.anchor,anchorP:_lsc.anchorP,basis:_lsc.basis})); }catch(e){} }
+// PRICE BASIS (18 Oct 2026, Daniel: "I can also have the option to use % of Yahoo avg draft value"): the level applies to
+// his Cap or to his Y! Avg$ (what other Yahoo leagues paid); a player Yahoo prices at $0 (about half the board) uses his Cap.
+function lscPrice(q,lvl){ const cap=(typeof q.cap==='number'&&q.cap>0)?q.cap:usualPrice(q); return _lsc.basis==='ya'?Math.max(1,Math.round(((+q.ya||0)>0?+q.ya:cap)*lvl),+q.lo||0):Math.max(1,Math.round(cap*lvl)); }
+function lscBaseName(){ return _lsc.basis==='ya'?'Y! Avg$':'Cap'; }
+function lscBasis(v){ _lsc.basis=v==='ya'?'ya':'cap'; const e=document.getElementById('lscBasis'); if(e&&e.value!==_lsc.basis) e.value=_lsc.basis; lscSave(); liveScenGen(); }
 // SAFE + ANCHOR (18 Oct 2026, Daniel: "add it, also allow me to design the roster by deciding who the anchor is going to
 // be"). Safe leaves out every player whose chance of playing under 70% of his projected games is 30%+ (injury model
 // buckets, the same number the Season tab shows). The anchor is forced into roster B at the typed price, or at level x Cap.
@@ -1797,15 +1802,15 @@ function lscAnchorP(v){ const n=Math.round(+v||0); _lsc.anchorP=n>=1?n:null; lsc
 function lscNames(){ const d=document.getElementById('lscNames'); if(!d||d.dataset.k===draftKeyNW()) return; d.dataset.k=draftKeyNW(); d.innerHTML=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0).sort((a,b)=>(b.blend||0)-(a.blend||0)).map(q=>`<option value="${q.name.replace(/"/g,'&quot;')}">`).join(''); }
 function lscOdds(ros){ const added=[]; for(const x of ros){ if(!state.picks[x.q.name]){ state.picks[x.q.name]={status:'won',mine:true,price:x.cost,whatif:true}; added.push(x.q.name); } }
   _injMemo={key:null,res:null}; let o=null; try{ o=injuryOdds(); } finally { for(const n of added) delete state.picks[n]; _injMemo={key:null,res:null}; } return o; }
-function lscLvl(v){ _lsc.level=+v; const e=document.getElementById('lscLvlV'); if(e) e.textContent=v+'% of Cap'; lscSave(); if(_lsc.res) lscStale(); }
+function lscLvl(v){ _lsc.level=+v; const e=document.getElementById('lscLvlV'); if(e) e.textContent=v+'%'; lscSave(); if(_lsc.res) lscStale(); }
 function lscExcl(n){ _lsc.excl.add(n); lscSave(); liveScenGen(); }
 function lscClear(){ _lsc.excl=new Set(); lscSave(); liveScenGen(); }
 function lscStale(){ const e=document.getElementById('lscNote'); if(e) e.textContent='Changed since the last Generate - press Generate.'; _lsc.res=_lsc.res?{..._lsc.res,stale:true}:null; }
 function lscRun(opts){ const sv=window.__nbIter, ss=window.__nbSeed, sw=window.__nbWarm; const forces=(opts.forces||[]).concat(opts.force?[{name:opts.force,price:opts.forcePrice}]:[]); const fn=new Set(forces.map(f=>f.name));
   const safe=opts.safe!=null?opts.safe:_lsc.safe, level=opts.level!=null?opts.level:_lsc.level/100;
   const excl=new Set(_lsc.excl); if(safe) for(const q of PJ){ const r=lscRisk(q.name); if(r!=null&&r>=30&&!fn.has(q.name)) excl.add(q.name); }
-  window.__nbLive={level,excl,maxCost:opts.maxCost||0};
-  window.__nbIter=4000; window.__nbSeed=draftKeyNW()+'|live'+level+(opts.maxCost||0)+(safe?'S':'')+forces.map(f=>f.name+f.price).join(','); window.__nbWarm=opts.warm||null; let E; const had={};
+  window.__nbLive={level,excl,maxCost:opts.maxCost||0,basis:_lsc.basis};
+  window.__nbIter=4000; window.__nbSeed=draftKeyNW()+'|live'+_lsc.basis+level+(opts.maxCost||0)+(safe?'S':'')+forces.map(f=>f.name+f.price).join(','); window.__nbWarm=opts.warm||null; let E; const had={};
   for(const f of forces){ had[f.name]=state.picks[f.name]; state.picks[f.name]={status:'won',mine:true,price:f.price,whatif:true}; }
   try{ E=nbEngine({lite:true}); } finally { window.__nbLive=null; window.__nbIter=sv; window.__nbSeed=ss; window.__nbWarm=sw; for(const f of forces){ if(had[f.name]) state.picks[f.name]=had[f.name]; else delete state.picks[f.name]; } }
   const forced=forces.map(f=>({q:pjOf(f.name),cost:f.price,cap:(byName[f.name]?policyFor(byName[f.name]).cap:pjOf(f.name).cap)||0,v:nbVec(pjOf(f.name)),forced:true})); const fp=forces.reduce((a,f)=>a+f.price,0);
@@ -1822,16 +1827,16 @@ function liveScenGen(){ const out=document.getElementById('lscOut'); if(!out) re
   let big=null, bigNote='';
   if(_lsc.anchor){ const q=pjOf(_lsc.anchor); const st=state.picks[_lsc.anchor];
     if(!q||isKeeper(_lsc.anchor)||(st&&!st.whatif)) bigNote=`${_lsc.anchor} is ${st&&st.mine?'already yours':st?'gone':'not available'}: B uses the best name left instead.`;
-    else { const c=_lsc.anchorP||Math.max(1,Math.round((typeof q.cap==='number'&&q.cap>0?q.cap:usualPrice(q))*lvl)); if(c>maxB) bigNote=`${_lsc.anchor} at $${c} is above your max bid of $${maxB}: B uses the best name left instead.`; else big={q,c,anchor:true}; } }
+    else { const c=_lsc.anchorP||lscPrice(q,lvl); if(c>maxB) bigNote=`${_lsc.anchor} at $${c} is above your max bid of $${maxB}: B uses the best name left instead.`; else big={q,c,anchor:true}; } }
   if(!big) big=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0&&!q.over&&!_lsc.excl.has(q.name)&&!(_lsc.safe&&(lscRisk(q.name)||0)>=30)&&typeof q.cap==='number'&&q.cap>0&&!inA.has(q.name))
-    .map(q=>({q,c:Math.max(1,Math.round(q.cap*lvl))})).filter(x=>x.c<=maxB&&x.c>=8).sort((a,b)=>(b.q.blend||0)-(a.q.blend||0))[0];
+    .map(q=>({q,c:lscPrice(q,lvl)})).filter(x=>x.c<=maxB&&x.c>=8).sort((a,b)=>(b.q.blend||0)-(a.q.blend||0))[0];
   const B=big?lscRun({force:big.q.name,forcePrice:big.c,warm:[A.ros.map(x=>x.q.name)]}):null;
   if(bigNote){ const n=document.getElementById('lscNote'); if(n) n.textContent=bigNote; }
   // D..G (18 Oct 2026, Daniel: "give me new spots D, E, etc."): two stars, safe (or risky when Safe is on), hot room, cheap room
   const warmA=[A.ros.map(x=>x.q.name)];
   let D=null, two=null;
   if(ms.need>=2){ const cands=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0&&!q.over&&!_lsc.excl.has(q.name)&&!(_lsc.safe&&(lscRisk(q.name)||0)>=30)&&typeof q.cap==='number'&&q.cap>0)
-      .map(q=>({q,c:Math.max(1,Math.round(q.cap*lvl))})).filter(x=>x.c>=8&&x.c<=maxB).sort((a,b)=>(b.q.blend||0)-(a.q.blend||0));
+      .map(q=>({q,c:lscPrice(q,lvl)})).filter(x=>x.c>=8&&x.c<=maxB).sort((a,b)=>(b.q.blend||0)-(a.q.blend||0));
     const first=big&&big.anchor?big:cands[0]; const second=first?cands.find(x=>x.q.name!==first.q.name&&first.c+x.c<=ms.left-(ms.need-2)):null;
     if(first&&second){ two=[first,second]; D=lscRun({forces:[{name:first.q.name,price:first.c},{name:second.q.name,price:second.c}],warm:warmA}); } }
   const E=lscRun({safe:!_lsc.safe,warm:warmA});
@@ -1852,13 +1857,13 @@ function lscRender(){ const out=document.getElementById('lscOut'); const R=_lsc.
       <div class="lsc-cats">${NB_CATS.map(k=>`${LAB[k]} ${cats[k].toFixed(1)}`).join(' · ')}</div></div>`; };
   const lvl=_lsc.level;
   const twoL=R.two?`${R.two[0].q.name} $${R.two[0].c} + ${R.two[1].q.name} $${R.two[1].c}, the rest planned around them`:'needs two open slots and two $8+ names you can afford together';
-  out.innerHTML=card('A · Best roto',`every player at ${lvl}% of his Cap${_lsc.safe?' · safe':''}`,R.A)+card(R.big?`B · Around ${R.big.q.name}${R.big.anchor?' (your anchor)':''}`:'B · Around the best name left',R.big?`${R.big.q.name} at $${R.big.c}, the rest planned around him`:'',R.B)+card('C · Depth',`nobody above $${Math.max(1,Math.round(0.2*ms.left))} (20% of your money left)${_lsc.safe?' · safe':''}`,R.C)
+  out.innerHTML=card('A · Best roto',`every player at ${lvl}% of his ${lscBaseName()}${_lsc.basis==='ya'?' (never below the room\'s low price; Cap when Yahoo has none)':''}${_lsc.safe?' · safe':''}`,R.A)+card(R.big?`B · Around ${R.big.q.name}${R.big.anchor?' (your anchor)':''}`:'B · Around the best name left',R.big?`${R.big.q.name} at $${R.big.c}, the rest planned around him`:'',R.B)+card('C · Depth',`nobody above $${Math.max(1,Math.round(0.2*ms.left))} (20% of your money left)${_lsc.safe?' · safe':''}`,R.C)
     +(R.D?card('D · Two stars',twoL,R.D):`<div class="lsc-card"><h4>D · Two stars</h4><div class="contnote">${twoL}</div></div>`)
     +card(_lsc.safe?'E · Risky allowed':'E · Safe',_lsc.safe?'the same plan with the injury-risk players allowed back in':'injury risk under 30% only',R.E)
-    +card('F · Hot room',`every price at ${Math.min(130,lvl+15)}% of Cap (the room overpays)`,R.F)+card('G · Cheap room',`every price at ${Math.max(60,lvl-15)}% of Cap (bargains)`,R.G);
+    +card('F · Hot room',`every price at ${Math.min(130,lvl+15)}% of ${lscBaseName()} (the room overpays)`,R.F)+card('G · Cheap room',`every price at ${Math.max(60,lvl-15)}% of ${lscBaseName()} (bargains)`,R.G);
   const sub=document.getElementById('lscSub'); if(sub) sub.textContent=`$${ms.left} left · ${ms.need} open slot${ms.need>1?'s':''}${_lsc.safe?' · safe on':''}${_lsc.anchor?` · anchor ${_lsc.anchor}`:''}${_lsc.excl.size?` · ${_lsc.excl.size} crossed off`:''}${R.stale?' · changed since Generate':''}`;
   const note=document.getElementById('lscNote'); if(note&&R.stale) note.textContent='Changed since the last Generate - press Generate.'; }
-function renderLiveScen(){ const e=document.getElementById('lscLvl'); if(e&&+e.value!==_lsc.level){ e.value=_lsc.level; const v=document.getElementById('lscLvlV'); if(v) v.textContent=_lsc.level+'% of Cap'; }
+function renderLiveScen(){ const e=document.getElementById('lscLvl'); if(e&&+e.value!==_lsc.level){ e.value=_lsc.level; const v=document.getElementById('lscLvlV'); if(v) v.textContent=_lsc.level+'%'; } const bs=document.getElementById('lscBasis'); if(bs&&bs.value!==_lsc.basis) bs.value=_lsc.basis;
   const sf=document.getElementById('lscSafe'); if(sf) sf.checked=_lsc.safe; const an=document.getElementById('lscAnchor'); if(an&&document.activeElement!==an) an.value=_lsc.anchor; const ap=document.getElementById('lscAnchorP'); if(ap&&document.activeElement!==ap) ap.value=_lsc.anchorP||''; lscNames();
   const R=_lsc.res; if(!R) { const sub=document.getElementById('lscSub'); if(sub){ const ms=myStatus(); sub.textContent=`$${ms.left} left · ${ms.need} open slots · press Generate`; } return; }
   if(R.key!==draftKeyNW()){ R.stale=true; lscRender(); const pane=document.querySelector('.tabpane[data-pane="scen"]');
@@ -3825,7 +3830,9 @@ function nbEngine(opt){ const lite=!!(opt&&opt.lite);   // lite: just the best p
       // prices when he has two. The simulated room had Jokic at $76; this room paid $79 and $86, so the plan used to
       // buy him $3-10 too cheap and picked him over SGA on that alone.
       const rp=roomPaid(q.name), floor=rp.length>=2?Math.min(...rp):0;
-      return {q,cap,now,cost:(LS?Math.max(1,Math.round(cap*LS.level)):Math.max(1,Math.round(usualPrice(q)*RI.f),floor)),v:nbVec(q)}; })
+      // Y! Avg$ basis: floored at the room's low price (Pay ~ low) - this year's Yahoo averages run far below what this
+      // room pays for $5-15 players (Quickley $1, Wallace $2), and an unfloored scenario would plan to buy them for $1-2
+      return {q,cap,now,cost:(LS?(LS.basis==='ya'?Math.max(1,Math.round(((+q.ya||0)>0?+q.ya:cap)*LS.level),+q.lo||0):Math.max(1,Math.round(cap*LS.level))):Math.max(1,Math.round(usualPrice(q)*RI.f),floor)),v:nbVec(q)}; })
     // ONE ANCHOR, SGA FIRST (11 Oct 2026): the card and the instant call treat Jokic as SGA's fallback only, so the plan
     // does too: Jokic enters only once SGA has gone to someone else (with prices within $1-3 the engine flipped between them).
     .filter(x=>LS||!(x.q.name==='Nikola Jokic' && !(isGone('Shai Gilgeous-Alexander')&&!isMine('Shai Gilgeous-Alexander'))))
