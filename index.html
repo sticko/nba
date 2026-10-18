@@ -823,7 +823,7 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .lsc-ctl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:10px;font-size:13px;color:var(--text-dim)} .lsc-ctl label{display:flex;align-items:center;gap:6px} .lsc-ctl input[type=text]{width:200px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text)} .lsc-ctl input[type=number]{width:58px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text)} .lsc-ctl input[type=checkbox]{accent-color:var(--accent)}
 .lsc-card td.risk{text-align:right;font-size:11px;color:var(--text-faint);white-space:nowrap} .lsc-card td.risk.hi{color:var(--danger);font-weight:700} .lsc-card .odds{font-size:12px;color:var(--text-dim)} .lsc-card .odds b{color:var(--text)} .lsc-ctl input[type=range]{width:180px;accent-color:var(--accent)} .lsc-ctl b{color:var(--text);min-width:110px}
 .lsc-note{font-size:12px;color:var(--gold)}
-.lsc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.lsc-grid{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x proximity} .lsc-grid>.lsc-card{flex:0 0 300px;scroll-snap-align:start}
 .lsc-card{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--text-dim)}
 .lsc-card h4{margin:0;font-size:14px;color:var(--text)} .lsc-card .roto{font-size:22px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums} .lsc-card .roto small{font-size:11px;font-weight:400;color:var(--text-faint);margin-left:6px}
 .lsc-card .money{font-size:12px;color:var(--text-dim)} .lsc-card .money.bad{color:var(--danger);font-weight:600}
@@ -1791,13 +1791,15 @@ function lscLvl(v){ _lsc.level=+v; const e=document.getElementById('lscLvlV'); i
 function lscExcl(n){ _lsc.excl.add(n); lscSave(); liveScenGen(); }
 function lscClear(){ _lsc.excl=new Set(); lscSave(); liveScenGen(); }
 function lscStale(){ const e=document.getElementById('lscNote'); if(e) e.textContent='Changed since the last Generate - press Generate.'; _lsc.res=_lsc.res?{..._lsc.res,stale:true}:null; }
-function lscRun(opts){ const sv=window.__nbIter, ss=window.__nbSeed, sw=window.__nbWarm; const excl=new Set(_lsc.excl); if(_lsc.safe) for(const q of PJ){ const r=lscRisk(q.name); if(r!=null&&r>=30&&q.name!==opts.force) excl.add(q.name); }
-  window.__nbLive={level:_lsc.level/100,excl,maxCost:opts.maxCost||0};
-  window.__nbIter=4000; window.__nbSeed=draftKeyNW()+'|live'+_lsc.level+(opts.maxCost||0)+(opts.force||''); window.__nbWarm=opts.warm||null; let E, had=null;
-  if(opts.force){ had=state.picks[opts.force]; state.picks[opts.force]={status:'won',mine:true,price:opts.forcePrice,whatif:true}; }
-  try{ E=nbEngine({lite:true}); } finally { window.__nbLive=null; window.__nbIter=sv; window.__nbSeed=ss; window.__nbWarm=sw; if(opts.force){ if(had) state.picks[opts.force]=had; else delete state.picks[opts.force]; } }
-  const forced=opts.force?[{q:pjOf(opts.force),cost:opts.forcePrice,cap:(byName[opts.force]?policyFor(byName[opts.force]).cap:pjOf(opts.force).cap)||0,v:nbVec(pjOf(opts.force)),forced:true}]:[];
-  return {...E, ros:forced.concat(E.ros), spent:E.spent+(opts.force?opts.forcePrice:0), left:E.left+(opts.force?opts.forcePrice:0)}; }
+function lscRun(opts){ const sv=window.__nbIter, ss=window.__nbSeed, sw=window.__nbWarm; const forces=(opts.forces||[]).concat(opts.force?[{name:opts.force,price:opts.forcePrice}]:[]); const fn=new Set(forces.map(f=>f.name));
+  const safe=opts.safe!=null?opts.safe:_lsc.safe, level=opts.level!=null?opts.level:_lsc.level/100;
+  const excl=new Set(_lsc.excl); if(safe) for(const q of PJ){ const r=lscRisk(q.name); if(r!=null&&r>=30&&!fn.has(q.name)) excl.add(q.name); }
+  window.__nbLive={level,excl,maxCost:opts.maxCost||0};
+  window.__nbIter=4000; window.__nbSeed=draftKeyNW()+'|live'+level+(opts.maxCost||0)+(safe?'S':'')+forces.map(f=>f.name+f.price).join(','); window.__nbWarm=opts.warm||null; let E; const had={};
+  for(const f of forces){ had[f.name]=state.picks[f.name]; state.picks[f.name]={status:'won',mine:true,price:f.price,whatif:true}; }
+  try{ E=nbEngine({lite:true}); } finally { window.__nbLive=null; window.__nbIter=sv; window.__nbSeed=ss; window.__nbWarm=sw; for(const f of forces){ if(had[f.name]) state.picks[f.name]=had[f.name]; else delete state.picks[f.name]; } }
+  const forced=forces.map(f=>({q:pjOf(f.name),cost:f.price,cap:(byName[f.name]?policyFor(byName[f.name]).cap:pjOf(f.name).cap)||0,v:nbVec(pjOf(f.name)),forced:true})); const fp=forces.reduce((a,f)=>a+f.price,0);
+  return {...E, ros:forced.concat(E.ros), spent:E.spent+fp, left:E.left+fp}; }
 function liveScenGen(){ const out=document.getElementById('lscOut'); if(!out) return; const ms=myStatus(); const note=document.getElementById('lscNote'); if(note) note.textContent='';
   if(ms.need<=0){ out.innerHTML='<div class="contnote">Roster full.</div>'; _lsc.res={key:draftKeyNW()}; return; }
   const lvl=_lsc.level/100, maxB=ms.left-(ms.need-1);
@@ -1815,7 +1817,17 @@ function liveScenGen(){ const out=document.getElementById('lscOut'); if(!out) re
     .map(q=>({q,c:Math.max(1,Math.round(q.cap*lvl))})).filter(x=>x.c<=maxB&&x.c>=8).sort((a,b)=>(b.q.blend||0)-(a.q.blend||0))[0];
   const B=big?lscRun({force:big.q.name,forcePrice:big.c,warm:[A.ros.map(x=>x.q.name)]}):null;
   if(bigNote){ const n=document.getElementById('lscNote'); if(n) n.textContent=bigNote; }
-  _lsc.res={key:draftKeyNW(),A,B,C,big}; _lsc.auto=true; lscRender(); }
+  // D..G (18 Oct 2026, Daniel: "give me new spots D, E, etc."): two stars, safe (or risky when Safe is on), hot room, cheap room
+  const warmA=[A.ros.map(x=>x.q.name)];
+  let D=null, two=null;
+  if(ms.need>=2){ const cands=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0&&!q.over&&!_lsc.excl.has(q.name)&&!(_lsc.safe&&(lscRisk(q.name)||0)>=30)&&typeof q.cap==='number'&&q.cap>0)
+      .map(q=>({q,c:Math.max(1,Math.round(q.cap*lvl))})).filter(x=>x.c>=8&&x.c<=maxB).sort((a,b)=>(b.q.blend||0)-(a.q.blend||0));
+    const first=big&&big.anchor?big:cands[0]; const second=first?cands.find(x=>x.q.name!==first.q.name&&first.c+x.c<=ms.left-(ms.need-2)):null;
+    if(first&&second){ two=[first,second]; D=lscRun({forces:[{name:first.q.name,price:first.c},{name:second.q.name,price:second.c}],warm:warmA}); } }
+  const E=lscRun({safe:!_lsc.safe,warm:warmA});
+  const F=lscRun({level:Math.min(1.3,lvl+0.15),warm:warmA}), G=lscRun({level:Math.max(0.6,lvl-0.15),warm:warmA});
+  _lsc.res={key:draftKeyNW(),A,B,C,D,E,F,G,big,two}; _lsc.auto=true; lscRender(); return;
+}
 function lscRender(){ const out=document.getElementById('lscOut'); const R=_lsc.res; if(!out||!R||!R.A) return; const ms=myStatus();
   const mine=Object.entries(state.picks).filter(([n,s])=>s.status==='won'&&s.mine&&!s.whatif).map(([n,s])=>({q:pjOf(n),cost:+s.price||0,mine:true})).filter(x=>x.q);
   const card=(title,sub,E)=>{ if(!E) return `<div class="lsc-card"><h4>${title}</h4><div class="contnote">No affordable big name left (none at $8+ within your max bid).</div></div>`;
@@ -1829,7 +1841,11 @@ function lscRender(){ const out=document.getElementById('lscOut'); const R=_lsc.
     return `<div class="lsc-card"><h4>${title}</h4><div class="p">${sub}</div><div class="roto">${roto.tot.toFixed(0)} <small>of 144 roto · ≈${E.exp.toFixed(0)} with normal luck</small></div>${odds}${warn}<table>${rows}</table>
       <div class="lsc-cats">${NB_CATS.map(k=>`${LAB[k]} ${cats[k].toFixed(1)}`).join(' · ')}</div></div>`; };
   const lvl=_lsc.level;
-  out.innerHTML=card('A · Best roto',`every player at ${lvl}% of his Cap${_lsc.safe?' · safe':''}`,R.A)+card(R.big?`B · Around ${R.big.q.name}${R.big.anchor?' (your anchor)':''}`:'B · Around the best name left',R.big?`${R.big.q.name} at $${R.big.c}, the rest planned around him`:'',R.B)+card('C · Depth',`nobody above $${Math.max(1,Math.round(0.2*ms.left))} (20% of your money left)${_lsc.safe?' · safe':''}`,R.C);
+  const twoL=R.two?`${R.two[0].q.name} $${R.two[0].c} + ${R.two[1].q.name} $${R.two[1].c}, the rest planned around them`:'needs two open slots and two $8+ names you can afford together';
+  out.innerHTML=card('A · Best roto',`every player at ${lvl}% of his Cap${_lsc.safe?' · safe':''}`,R.A)+card(R.big?`B · Around ${R.big.q.name}${R.big.anchor?' (your anchor)':''}`:'B · Around the best name left',R.big?`${R.big.q.name} at $${R.big.c}, the rest planned around him`:'',R.B)+card('C · Depth',`nobody above $${Math.max(1,Math.round(0.2*ms.left))} (20% of your money left)${_lsc.safe?' · safe':''}`,R.C)
+    +(R.D?card('D · Two stars',twoL,R.D):`<div class="lsc-card"><h4>D · Two stars</h4><div class="contnote">${twoL}</div></div>`)
+    +card(_lsc.safe?'E · Risky allowed':'E · Safe',_lsc.safe?'the same plan with the injury-risk players allowed back in':'injury risk under 30% only',R.E)
+    +card('F · Hot room',`every price at ${Math.min(130,lvl+15)}% of Cap (the room overpays)`,R.F)+card('G · Cheap room',`every price at ${Math.max(60,lvl-15)}% of Cap (bargains)`,R.G);
   const sub=document.getElementById('lscSub'); if(sub) sub.textContent=`$${ms.left} left · ${ms.need} open slot${ms.need>1?'s':''}${_lsc.safe?' · safe on':''}${_lsc.anchor?` · anchor ${_lsc.anchor}`:''}${_lsc.excl.size?` · ${_lsc.excl.size} crossed off`:''}${R.stale?' · changed since Generate':''}`;
   const note=document.getElementById('lscNote'); if(note&&R.stale) note.textContent='Changed since the last Generate - press Generate.'; }
 function renderLiveScen(){ const e=document.getElementById('lscLvl'); if(e&&+e.value!==_lsc.level){ e.value=_lsc.level; const v=document.getElementById('lscLvlV'); if(v) v.textContent=_lsc.level+'% of Cap'; }
