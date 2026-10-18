@@ -3529,7 +3529,7 @@ function tagTipHTML(n,tt){ const g=gemInfo(n), q=pjOf(n)||{}, cap=liveCapOf(n);
   if(tt==='cy'){ const c=cyInfo(n); if(!c) return '';
     return `<div class="tt-h"><b>${c.kind==='cy'?'Contract year':'Player option next summer'}</b></div>
       <div>${c.kind==='cy'?'His contract ends after this season: he is a free agent next summer (restricted if he is on a rookie deal).':'He can opt out of 2027-28 next summer, so a strong season earns him a new deal.'} Players playing for a contract are often said to push harder.</div>
-      <div class="tt-n">A mark only: our projections, the plan and Roto +/- do not add anything for it (being tested on past seasons first). Source: Basketball-Reference contracts, ${CY.date_txt}.</div>`; }
+      <div class="tt-n">A mark only: our projections, the plan and Roto +/- add nothing for it. Tested on 2020-21 .. 2025-26: contract-year players did NOT beat our projections (slightly fewer minutes and value than projected), so there is no boost. Source: Basketball-Reference contracts, ${CY.date_txt}.</div>`; }
   if(tt==='sleeper'){ const sl=sleeperMap().get(n); if(!sl) return '';
     return `<div class="tt-h slp">${TG_SLP}<b>Sleeper #${sl.rank} of 10</b></div>
       <div>The room does not see him: a weak or quiet 2025-26, no hot finish, cheap last year and almost no press. Our value is above what the room usually pays.</div>
