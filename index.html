@@ -967,7 +967,7 @@ details.method[open] summary:after{content:'\2212'}
   <div class="stat"><span class="k">Spent</span><span class="v mono" id="stSpent">$0</span></div>
   <div class="stat"><span class="k">Left</span><span class="v mono ok" id="stLeft">$200</span></div>
   <div class="budgetbar"><i id="budgetFill" style="width:0%"></i></div>
-  <div class="stat"><span class="k">Slots</span><span class="v mono" id="stSlots">0/13</span></div>
+  <div class="stat"><span class="k">Slots</span><span class="v mono" id="stSlots">0/12</span></div>
   <div class="stat maxbid" title="The most you can bid right now and still keep $1 for every other open slot"><span class="k">Max bid</span><span class="v mono" id="stMax">$188</span></div>
   <div class="stat" title="Next pick number (picks you have logged + 1) and the stage of the draft"><span class="k">Pick · <span id="stPhase">opening</span></span><span class="v mono" id="stPick">1</span></div>
   <div class="stat"><span class="k">Anchors left</span><span class="v mono" id="stAnch">—</span></div>
@@ -1204,7 +1204,7 @@ details.method[open] summary:after{content:'\2212'}
         <div class="nbhead" id="nbN"></div>
         <div id="nbList"></div>
         <div class="nbhow"><div class="nbhow-t"><span class="nbhow-ic" aria-hidden="true">?</span>How this works</div>
-          <p>Updated after every pick. The page builds the best 13-man plan your money still buys: it starts from the kit's Scenarios and your card, then searches thousands of one- and two-player swaps, scoring expected roto in all 9 categories against the simulated rivals.</p>
+          <p>Updated after every pick. The page builds the best 12-man plan your money still buys: it starts from the kit's Scenarios and your card, then searches thousands of one- and two-player swaps, scoring expected roto in all 9 categories against the simulated rivals.</p>
           <p>Prices follow the room: if sales run hot or cold, the plan's prices move with them. The top 6 are the plan's biggest buys right now. "Worth +1.3 roto" means your final team scores 1.3 roto points more with him than without him, both sides re-planned in full; it is the same Roto +/- the Players table, his call and the what-if show. "Replaceable" means under 0.5, which is inside the search's noise. "If you miss him" lists the best one-for-one swaps. Everywhere on the page, a + next to a player means he helps your team.</p>
           <p>Bid up to the cap, never past it.</p></div>
       </div>
@@ -1366,7 +1366,12 @@ const ENDGAME = [{"name":"Cason Wallace","team":"OKC","pos":"G","age":23.2,"g":7
 const ENDGAME_NAMES=new Set(ENDGAME.map(e=>e.name));
 const TEAMTIER = {"strength":{"DEN":117,"SAS":131,"OKC":149,"LAL":129,"PHI":113,"BOS":108,"CLE":141,"IND":64,"MIN":144,"TOR":106,"DET":136,"NYK":121,"ATL":114,"HOU":155,"GSW":74,"DAL":97,"NOP":67,"MIA":83,"UTA":52,"WAS":77,"ORL":105,"SAC":69,"BRK":64,"MIL":94,"PHO":76,"CHI":109,"CHO":107,"POR":114,"LAC":57,"MEM":36},"tier":{"HOU":"contender","OKC":"contender","MIN":"contender","CLE":"contender","DET":"contender","SAS":"contender","LAL":"contender","NYK":"contender","DEN":"contender","ATL":"contender","POR":"middle","PHI":"contender","CHI":"middle","BOS":"contender","CHO":"middle","TOR":"middle","ORL":"middle","DAL":"middle","MIL":"middle","MIA":"middle","WAS":"rebuilding","PHO":"rebuilding","GSW":"middle","SAC":"rebuilding","NOP":"rebuilding","IND":"middle","BRK":"rebuilding","LAC":"rebuilding","UTA":"rebuilding","MEM":"rebuilding"},"overrides":{"GSW":"Curry/Porzi\u0146\u0123is/Draymond core contends when healthy; Butler/Moody absences depress the roster proxy","IND":"Haliburton returns \u2014 not a rebuild","PHI":"Maxey/Brown/Embiid/LeBron \u2014 contender on paper","BOS":"Tatum back + George \u2014 contender","MIA":"Giannis/Bam \u2014 playoff team"}};
 const CURVE = {"0.0":0.0,"0.167":0.48,"0.333":0.73,"0.444":0.83,"0.556":0.89,"0.667":0.93,"0.833":0.97,"1.0":1.0};
-const TOTAL_PICKS = 199;   // 16 teams x 13 slots minus the 9 keepers already off the board
+// ROSTER SIZE (18 Oct 2026, draft day, Daniel: "apparently we only need 12 roster spot per manager, update the engine"):
+// 12 per manager, one bench spot fewer (PG SG G SF PF F C UTIL x3 BN x2; he chose the bench). The 10 starters and the
+// 780-game cap are unchanged. Everything that counts open slots reads ROSTER_N. NOT re-run for 12: the 2,000-draft price
+// simulation (Pay ~, win odds), the Scenarios A-D tables and the draft card, which were all built for 13.
+const ROSTER_N = 12;
+const TOTAL_PICKS = 16*ROSTER_N-9;   // 16 teams x 12 slots minus the 9 keepers already off the board
 const BUDGET = 200;
 const SEASONS = Object.keys(STANDINGS);
 
@@ -1516,9 +1521,9 @@ function renderLedger(){
   const leftEl = document.getElementById('stLeft');
   leftEl.textContent = '$'+left;
   leftEl.className = 'v mono ' + (left < 15 ? 'warn' : 'ok');
-  document.getElementById('stSlots').textContent = slots+'/13';
+  document.getElementById('stSlots').textContent = slots+'/'+ROSTER_N;
   // max bid: keep $1 for every other open slot (the same rule the price dialog enforces)
-  const _need=13-slots, _mx=_need>0?Math.max(0,left-Math.max(0,_need-1)):0;
+  const _need=ROSTER_N-slots, _mx=_need>0?Math.max(0,left-Math.max(0,_need-1)):0;
   const _mb=document.getElementById('stMax'); if(_mb){ _mb.textContent='$'+_mx; _mb.className='v mono'+(_mx<5?' warn':''); }
   const _np=Object.keys(state.picks).length, _ph=PHASES.find(p=>_np+1>=p.lo&&_np+1<=p.hi)||PHASES[PHASES.length-1];
   const _sp=document.getElementById('stPick'); if(_sp) _sp.textContent=String(_np+1);
@@ -1536,7 +1541,7 @@ function renderLedger(){
     anch += price; anchN += 1;
   });
   document.getElementById('stAnch').textContent = '$'+Math.round(anch);
-  const restSlots = Math.max(0, 13 - slots - anchN);
+  const restSlots = Math.max(0, ROSTER_N - slots - anchN);
   const rest = left - anch;
   const planEl = document.getElementById('stPlan');
   planEl.textContent = restSlots>0 ? '$'+(rest/restSlots).toFixed(1) : '—';
@@ -1686,8 +1691,8 @@ function repLine(){ if(_repLine) return _repLine;
   _repLine={g:1,p:med('p'),tp:med('tp'),r:med('r'),a:med('a'),s:med('s'),b:med('b'),to:med('to'),fga:med('fga'),fta:med('fta'),fg:med('fg'),ft:med('ft')}; return _repLine; }
 function injuryOdds(){
   const mine=Object.entries(state.picks).filter(([n,st])=>st.status==='won'&&st.mine).map(([n])=>pjOf(n)).filter(Boolean);
-  let plan=[]; if(mine.length<13){ try{ plan=(nbEngine().plan||[]).map(x=>x.q); }catch(e){ plan=[]; } }
-  const team=mine.concat(plan).slice(0,13); if(!team.length) return null;
+  let plan=[]; if(mine.length<ROSTER_N){ try{ plan=(nbEngine().plan||[]).map(x=>x.q); }catch(e){ plan=[]; } }
+  const team=mine.concat(plan).slice(0,ROSTER_N); if(!team.length) return null;
   const key=team.map(q=>q.name).join('|'); if(_injMemo.key===key) return _injMemo.res;
   const TT=(STANDINGS['2026-27 (proj)']||{}).team_totals||[]; const M=INJM.team, R=repLine(), rv=nbVec(R);
   const qv=team.map(q=>{ const b=INJM.buckets[INJM.players[q.name]]||INJM.buckets['any|'+((q.g||0)<=55?'p55':(q.g||0)<=65?'p65':'p66')]; return {v:nbVec(q),g0:Math.min(+q.g||0,78),Q:b.q}; });
@@ -1707,12 +1712,12 @@ function injuryOdds(){
   _injMemo={key,res}; return res; }
 function renderInjuryOdds(){ const el=document.getElementById('scOdds'); if(!el) return; const o=injuryOdds();
   if(!o){ el.innerHTML=''; return; }
-  const who=o.plan?`your ${o.mine} player${o.mine===1?'':'s'} + the plan's ${o.plan} for the open slots`:'your 13 players';
+  const who=o.plan?`your ${o.mine} player${o.mine===1?'':'s'} + the plan's ${o.plan} for the open slots`:`your ${ROSTER_N} players`;
   el.innerHTML=`<div class="sc-oh"><b>Odds with injuries and normal season luck</b> <span>2,000 simulated seasons of ${who}</span></div>
     <div class="sc-ot">${[['1st',o.p1],['Top 3',o.p3],['Top 5',o.p5],['Bottom 5',o.b5]].map(([k,v])=>`<div class="${k==='Bottom 5'?'bad':''}"><span class="k">${k}</span><span class="v">${v}%</span></div>`).join('')}
       <div><span class="k">Likely finish</span><span class="v">#${o.med}</span><small>8 in 10: #${o.lo} to #${o.hi}</small></div>
       <div><span class="k">Games lost</span><span class="v">${o.lost}</span><small>on average, before the waiver wire</small></div></div>
-    ${o.plan>=4?`<div class="sc-or" style="color:var(--gold)">Read these odds as optimistic while ${o.plan} of the 13 are still plan players: the plan picks the players our own projections like best, so it looks better to our model than it will in the real season (the simulator is circular). They become fair once the players are really yours.</div>`:''}
+    ${o.plan>=4?`<div class="sc-or" style="color:var(--gold)">Read these odds as optimistic while ${o.plan} of the ${ROSTER_N} are still plan players: the plan picks the players our own projections like best, so it looks better to our model than it will in the real season (the simulator is circular). They become fair once the players are really yours.</div>`:''}
     ${o.risky.length?`<div class="sc-or">Highest injury risk on this team (chance of playing under 70% of his projected games): ${o.risky.map(r=>`<b>${r.n}</b> ${r.p}%`).join(' · ')}</div>`:''}
     <div class="sc-on">Each player's games are drawn from real players like him (his games last season and his projected games, 2,497 player-seasons 2020-26); lost games below the 780 cap are refilled at a waiver-level line. On top of injuries, a real ALMOC season moves a team about ±${Math.round(INJM.team.sd_rest)} roto points from its draft-day projection (trades, waivers, slumps; 74 rosters 2021-26), and every rival gets the same. That is why the range is wide: it is the honest size of a season's luck.</div>`; }
 // SEASON TAB (15 Oct 2026, Daniel: "ok build them" - the in-season tracker). SCHED = the 2026-27 NBA calendar
@@ -1739,7 +1744,7 @@ function renderSeason(){ const box=document.getElementById('seaPace'); if(!box) 
   const wkGames=mine.reduce((a,q)=>a+wk(q),0);
   const wFrom=today>wa?today:wa; let wkLeague=0; for(const t of Object.values(SCHED.teams)) for(const i of t){ const d=SCHED.dates[i]; if(d>=wFrom&&d<=wb) wkLeague++; }
   const wkPace=Math.round(780*wkLeague/tot);
-  document.getElementById('seaSub').textContent=today<first?`season starts ${first} · ${mine.length}/13 on your roster`:today>last?'regular season over':`week of ${wa} · ${Math.round(100*frac)}% of the season played`;
+  document.getElementById('seaSub').textContent=today<first?`season starts ${first} · ${mine.length}/${ROSTER_N} on your roster`:today>last?'regular season over':`week of ${wa} · ${Math.round(100*frac)}% of the season played`;
   const card=(k,v,sm,c)=>`<div class="${c||''}"><span class="k">${k}</span><span class="v">${v}</span><small>${sm||''}</small></div>`;
   box.innerHTML=[
     card('Games used', gp==null?'—':gp, gp==null?'type your Yahoo GP above':`of 780 · ${need} left`),
@@ -1786,7 +1791,7 @@ function liveRivals(){ const T={}; let noBy=0;
   for(const [n,s] of Object.entries(state.picks)){ if(s.whatif||s.status!=='gone') continue; if(!s.by){ noBy++; continue; } const q=pjOf(n);
     const t=T[s.by]||(T[s.by]={by:s.by,players:[],spent:0,v:new Array(12).fill(0)}); t.players.push(n); t.spent+=(+s.price||0); if(q){ const w=nbVec(q); for(let k=0;k<12;k++) t.v[k]+=w[k]; } }
   const avail=PJ.filter(q=>!state.picks[q.name]&&!isKeeper(q.name)&&(q.g||0)>0).map(q=>({u:usualPrice(q),v:nbVec(q)}));
-  const rivals=Object.values(T).map(t=>{ const slots=Math.max(0,13-t.players.length), money=Math.max(0,200-t.spent), v=t.v.slice();
+  const rivals=Object.values(T).map(t=>{ const slots=Math.max(0,ROSTER_N-t.players.length), money=Math.max(0,200-t.spent), v=t.v.slice();
     if(slots>0&&avail.length){ const per=money/slots, near=avail.slice().sort((a,b)=>Math.abs(a.u-per)-Math.abs(b.u-per)).slice(0,12);
       for(let k=0;k<12;k++){ let m=0; for(const x of near) m+=x.v[k]; v[k]+=slots*m/near.length; } }
     return {...t, slots, money, maxBid:slots>0?Math.max(0,money-(slots-1)):0, cats:nbCats(v)}; });
@@ -2017,7 +2022,7 @@ function markWon(name, mine){
   }
   const ms = myStatus();
   if(ms.need<=0){
-    openModal('Roster full', '<p style="margin:0">All 13 slots are filled. Undo a pick before logging another win.</p>', 'OK', () => {});
+    openModal('Roster full', '<p style="margin:0">All ${ROSTER_N} slots are filled. Undo a pick before logging another win.</p>', 'OK', () => {});
     return;
   }
   const maxBid = ms.left - Math.max(0, ms.need-1);   // keep $1 for every other open slot
@@ -2390,7 +2395,7 @@ function myStatus(){
   let spent=0,slots=0;
   Object.entries(state.picks).forEach(([n,st])=>{ if(st.status==='won'&&st.mine){spent+=(st.price||0);slots++;} });
   const n=Object.keys(state.picks).length;
-  return {spent, slots, left:BUDGET-spent, need:13-slots, n};
+  return {spent, slots, left:BUDGET-spent, need:ROSTER_N-slots, n};
 }
 function roomCurve(x){ // fraction of league money gone at pick fraction x (5-yr ALMOC average); linear interpolation, never NaN
   // keys are JSON strings ("0.0", "0.167", ... "1.0"): parse them, never index CURVE by a Number (CURVE[0] is undefined)
@@ -2405,7 +2410,7 @@ function richness(ms){
   // my $/slot vs the room's estimated $/slot at this point of the draft
   const frac=Math.min(1, ms.n/TOTAL_PICKS);
   const roomLeft=Math.max(1, 3000*(1-roomCurve(frac)));          // 15 opponents' money still unspent (5-yr curve)
-  const roomSlots=Math.max(1, 186 - (ms.n - ms.slots));            // 15 rivals x 13 = 195, minus the 9 keepers they already hold = 186, minus their picks so far
+  const roomSlots=Math.max(1, 15*ROSTER_N-9 - (ms.n - ms.slots));   // 15 rivals x 12 = 180, minus the 9 keepers they already hold = 171, minus their picks so far
   const roomBps=roomLeft/roomSlots, myBps=ms.left/Math.max(ms.need,1);
   return {f:Math.max(0.8,Math.min(1.7,myBps/Math.max(roomBps,1))), frac, roomBps, myBps};
 }
@@ -2498,7 +2503,7 @@ function renderVerdict(){
   if(hit.keeper){ cls='meh'; call='KEEPER — already owned (not in this auction)'; why=`${hit.name} was kept by another manager before the draft. He cannot be nominated, won or marked gone.`; pol.notes.length=0; }
   else if(st&&st.status==='won'&&st.mine){ cls='meh'; call='ALREADY YOURS'; why=`You bought him for $${st.price}.`; }
   else if(st){ cls='meh'; call='GONE'; why='Already off the board.'; }
-  else if(ms.need<=0){ cls='stop'; call='ROSTER FULL — no slot left'; why='All 13 slots are filled. Undo a pick if you want to change it.'; pol.notes.length=0; }
+  else if(ms.need<=0){ cls='stop'; call='ROSTER FULL — no slot left'; why=`All ${ROSTER_N} slots are filled. Undo a pick if you want to change it.`; pol.notes.length=0; }
   else if(maxAfford<1){ cls='stop'; call='NO ROOM'; why=`$${ms.left} left and ${ms.need} slots to fill — you can only bid $1.`; }
   else if(pol.kind==='anchor' && pol.cap===0){ cls='stop'; call='PASS — anchor seat filled'; why=pol.notes.join(' '); pol.notes.length=0; }
   else if(pol.kind==='anchor'){
@@ -2535,7 +2540,7 @@ function renderVerdict(){
     if(pol.kind==='card'){ cls='go'; call=`BID — up to $${eff}`; why=`On your card at ${on.slot}. Rule: ${(y<=5&&pol.cap>y+3)?'proven cheap starter — ½ × Blend $ (floor $6-7); the room paid median $4-9 for this profile in its last 1.30× year':'Yahoo $'+y+' + 3, capped at 1.2× Blend'}. Sim: lands ${on.obj.simLand!=null?on.obj.simLand+'%':'—'} at avg $${on.obj.simAvg!=null?on.obj.simAvg:'—'} — losing him costs little; the next mid at the same rule replaces him.`; }
     else if(pol.kind==='pivot'){ cls='go'; call=`BID — up to $${eff}`; why=`Your ${on.slot} pivot.`; }
     else if((hit.blend||0)-y>=6){ cls='go'; call=`VALUE — up to $${eff}`; why=`Blend $${(hit.blend||0).toFixed(0)} vs Yahoo $${y} — real surplus. Same rule as everyone: Yahoo+3 / 1.2× Blend.`; }
-    else if((hit.g||0)<25){ cls='meh'; call=`STASH ONLY — up to $${eff}, out most of the season`; why=(hit.note||'Long-term injury per the September depth research.')+' A roster spot in a 13-slot, 780-game league is worth more than the stash.'; }
+    else if((hit.g||0)<25){ cls='meh'; call=`STASH ONLY — up to $${eff}, out most of the season`; why=(hit.note||'Long-term injury per the September depth research.')+' A roster spot in a '+ROSTER_N+'-slot, 780-game league is worth more than the stash.'; }
     else if(pol.cap<=4){ cls='meh'; call=`FILLER — $${Math.min(eff,4)} max`; why='A $2-4 body. Fine late, never early.'; }
     else { cls='meh'; call=`OK at $${eff} — not a penny more`; why=`Fair at Yahoo $${y}; nothing special for this build. Take him only if he stops at or under your number.`; }
     if(maxAfford<pol.cap) why+=` Budget caps you at $${maxAfford} (${ms.need} slots left).`;
@@ -2702,11 +2707,11 @@ function depthHTML(hit){
     ${d.inj.length?`<div class="dlab">Hurt</div><ul class="dinj">${d.inj.map(x=>`<li>${x}</li>`).join('')}</ul>`:''}
     <div class="dlab">Usage</div><div class="dusage">${d.usage}</div></div>`;
 }
-const SLOTS=['PG','SG','G','SF','PF','F','C','UTIL','UTIL','UTIL','BN','BN','BN'];
+const SLOTS=['PG','SG','G','SF','PF','F','C','UTIL','UTIL','UTIL','BN','BN'];   // 12 since 18 Oct (one BN fewer)
 const ELIG={PG:['PG'],SG:['SG'],G:['PG','SG'],SF:['SF'],PF:['PF'],F:['SF','PF'],C:['C'],UTIL:null,BN:null};
 function assignSlots(players){
   // max bipartite matching: specific slots first, then G/F, then UTIL/BN
-  const order=[0,1,3,4,6,2,5,7,8,9,10,11,12];
+  const order=[0,1,3,4,6,2,5].concat(SLOTS.map((_,i)=>i).slice(7));   // UTIL/BN after; follows SLOTS' length (12 since 18 Oct)
   const can=(p,si)=>{const e=ELIG[SLOTS[si]]; return !e || (p.ypos||[]).some(x=>e.includes(x));};
   const slotOf=new Array(players.length).fill(-1), used=new Array(SLOTS.length).fill(-1);
   function tryPlace(pi,seen){
@@ -2832,9 +2837,9 @@ function renderTeam(){
     return `<tr><td class="slot"><span class="badge ${s}">${s}</span></td><td class="nm">${p.name}${sp}<span class="sub">${(p.ypos||[]).join(',')} · ${p.team||''} · Yahoo $${Math.round(p.yahoo||0)} · Punt $${p.punt||0} · ALMOC ${hist2Txt(p)||'undrafted'}</span>${withStats?teamStats(p.name, si===firstFilled):''}</td><td class="cost">$${p.price} <button class="btn ghost mini-inline" onclick="undo('${p.name.replace(/'/g,"\\'")}')">undo</button></td></tr>`;}).join('');
   const rows=rowsFor(false), rows2=rowsFor(true);
   const unplaced=mine.filter((p,i)=>used.indexOf(i)<0);
-  const html=`<div class="sum"><span><b>${mine.length}</b>/13 filled</span><span><b>$${spent}</b> spent · <b>$${BUDGET-spent}</b> left</span><span>eligibility on roster: ${Object.entries(posCount).map(([k,v])=>k+' '+v).join(' · ')||'—'}</span>${unplaced.length?`<span style="color:var(--danger)"><b>No legal slot for:</b> ${unplaced.map(p=>p.name).join(', ')}</span>`:''}</div><table>${rows}</table>`;
+  const html=`<div class="sum"><span><b>${mine.length}</b>/${ROSTER_N} filled</span><span><b>$${spent}</b> spent · <b>$${BUDGET-spent}</b> left</span><span>eligibility on roster: ${Object.entries(posCount).map(([k,v])=>k+' '+v).join(' · ')||'—'}</span>${unplaced.length?`<span style="color:var(--danger)"><b>No legal slot for:</b> ${unplaced.map(p=>p.name).join(', ')}</span>`:''}</div><table>${rows}</table>`;
   box.innerHTML=html; const b2=document.getElementById('teamBox2'); if(b2) b2.innerHTML=html.replace(`<table>${rows}</table>`,`<table>${rows2}</table>`);
-  ['teamCount','teamCount2'].forEach(id=>{const el=document.getElementById(id); if(el) el.textContent=`${mine.length}/13 · $${spent}`;});
+  ['teamCount','teamCount2'].forEach(id=>{const el=document.getElementById(id); if(el) el.textContent=`${mine.length}/${ROSTER_N} · $${spent}`;});
   const need=openReq.filter(s=>s!=='G'&&s!=='F'); const g=openReq.includes('G'), f=openReq.includes('F');
   const noteHTML=openReq.length?`Position slots still to fill: <b>${openReq.join(', ')}</b>. The instant call and the endgame board know this — a player who only fits an already-filled slot is a UTIL/BN body. Yahoo eligibility from your league CSV; G takes PG/SG, F takes SF/PF, UTIL and BN take anyone.`:'All position slots covered — the remaining picks are UTIL/BN: best value regardless of position.';
   ['teamNote','teamNote2'].forEach(id=>{const el=document.getElementById(id); if(el) el.innerHTML=noteHTML;});
@@ -3278,7 +3283,7 @@ let scenPick='win90';   // the 90% roster (18 Oct 2026); B, the usual price, was
 // $200 - your own buys included, the rest of your money on the players still available - with every player at the price
 // where you win him 90% of the time (times today's room index, never under his last two real prices). Rows come from the
 // scenario pool when the player is in it, else from the projections and the real 2025-26 line.
-const S90={id:'win90',name:'E · 90% roster',sub:'best 13 for $200 with every player at the price you win him 90% of the time - your buys included, rebuilt after every pick'};
+const S90={id:'win90',name:'E · 90% roster',sub:'best '+ROSTER_N+' for $200 with every player at the price you win him 90% of the time - your buys included, rebuilt after every pick'};
 let _s90={key:null,s:null};
 function scen90(){ const key=draftKeyNW()+'|'+_lsc.excl.size; if(_s90.key===key) return _s90.s;
   const ms=myStatus(); const mine=Object.entries(state.picks).filter(([n,st])=>st.status==='won'&&st.mine&&!st.whatif).map(([n,st])=>({q:pjOf(n),cost:+st.price||0,mine:true})).filter(x=>x.q);
@@ -3910,7 +3915,7 @@ function pasteApply(){
     n++; });
   PASTE_LAST=before; save(); renderAll();
   const ms=myStatus();
-  const warn=(ms.left<0||ms.slots>13)?` <b>Check your team: $${ms.spent} spent on ${ms.slots} players.</b>`:'';
+  const warn=(ms.left<0||ms.slots>ROSTER_N)?` <b>Check your team: $${ms.spent} spent on ${ms.slots} players.</b>`:'';
   document.getElementById('pastePv').innerHTML=`<div class="pvmsg ${miss.length||warn?'warn':'ok'}">Logged ${n} pick${n===1?'':'s'}.${miss.length?' Not logged (yours, but no price): '+miss.join(', ')+'.':''}${warn} <button class="btn ghost" onclick="pasteUndo()">Undo this batch</button></div>`;
   document.getElementById('pasteBox').value=''; PASTE=[];
 }
@@ -4125,7 +4130,7 @@ function nbEngine(opt){ const lite=!!(opt&&opt.lite);   // lite: just the best p
       const y={q,cap,cost:cap,v:nbVec(q)}; let bestS=-1e9, out=null; const R=best.ros;
       for(let i=0;i<R.length;i++){ if(best.money+R[i].cost<cap) continue; const t=R.filter((_,k)=>k!==i).concat([y]); const v=evalR(t); if(v>bestS&&legal(t)){ bestS=v; out=[R[i]]; } }
       if(!out) for(let i=0;i<R.length;i++) for(let j=i+1;j<R.length;j++){ if(best.money+R[i].cost+R[j].cost<cap) continue;
-        const t=R.filter((_,k)=>k!==i&&k!==j).concat([y]); if(t.length+mine.length>13) continue; const v=evalR(t); if(v>bestS&&legal(t)){ bestS=v; out=[R[i],R[j]]; } }
+        const t=R.filter((_,k)=>k!==i&&k!==j).concat([y]); if(t.length+mine.length>ROSTER_N) continue; const v=evalR(t); if(v>bestS&&legal(t)){ bestS=v; out=[R[i],R[j]]; } }
       if(out) stretch.push({q,cap,p:w.p,gain:bestS-best.exp,out:out.map(o=>o.q.name)}); }
     stretch.sort((a,b)=>b.gain-a.gain); }
   // ROTO +/- FOR EVERY PLAYER STILL AVAILABLE (14 Oct 2026, Daniel: "once we start drafting is it possible to have a
@@ -4226,7 +4231,7 @@ function renderNextBest(){
 function renderMyPlayers(){
   const box=document.getElementById('mpList'); if(!box) return; const ms=myStatus(), maxBid=ms.need>0?ms.left-Math.max(0,ms.need-1):0;
   const mine=Object.entries(state.picks).filter(([n,st])=>st.status==='won'&&st.mine).map(([n,st])=>({n,price:st.price||0,q:pjOf(n)||byName[n]||{}})).sort((a,b)=>b.price-a.price);
-  document.getElementById('mpN').textContent=`${ms.slots}/13 · $${ms.left} left · max bid $${maxBid}`;
+  document.getElementById('mpN').textContent=`${ms.slots}/${ROSTER_N} · $${ms.left} left · max bid $${maxBid}`;
   box.innerHTML=mine.length?mine.map(m=>{ const nmJ=m.n.replace(/'/g,"\\'"), pos=m.q.ypos?(Array.isArray(m.q.ypos)?m.q.ypos.join(','):m.q.ypos):'';
       return `<div class="mprow"><span class="nm">${faceHTML(m.n)}<a href="#" onclick="return openCall('${nmJ}')">${m.n}</a> <span class="sub" style="display:inline">${pos}</span></span><span class="num"><b>$${m.price}</b></span><button class="btn ghost" onclick="undo('${nmJ}')">undo</button></div>`; }).join('')
     :'<div class="contnote" style="margin-top:0">Nobody yet. Press Z in the search box, or paste Yahoo results with your team name.</div>';
