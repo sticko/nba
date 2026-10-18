@@ -828,6 +828,7 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .lsc-card h4{margin:0;font-size:14px;color:var(--text)} .lsc-card .roto{font-size:22px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums} .lsc-card .roto small{font-size:11px;font-weight:400;color:var(--text-faint);margin-left:6px}
 .lsc-card .money{font-size:12px;color:var(--text-dim)} .lsc-card .money.bad{color:var(--danger);font-weight:600}
 .lsc-card table{width:100%;border-collapse:collapse} .lsc-card td{padding:3px 4px;border-bottom:1px solid var(--line);vertical-align:middle} .lsc-card td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap} .lsc-card td.p{color:var(--text-faint);font-size:11px} .lsc-card tr.mine td{color:var(--text-faint);font-style:italic}
+.lsc-gem{display:inline-block;margin-left:4px;padding:0 5px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;background:var(--gold);color:#1a1200;vertical-align:1px} .lsc-card .gems{margin:4px 0 2px}
 .lsc-x{border:1px solid var(--line);background:none;color:var(--text-faint);border-radius:5px;cursor:pointer;font-size:11px;padding:0 5px;line-height:16px} .lsc-x:hover{color:var(--danger);border-color:var(--danger)}
 .lsc-cats{font-size:11px;color:var(--text-faint);line-height:1.5}
 .slp-t{width:100%;border-collapse:collapse;font-size:12.5px} .slp-t th{text-align:left;font-weight:600;color:var(--text-faint);font-size:11px;padding:4px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -1214,7 +1215,7 @@ details.method[open] summary:after{content:'\2212'}
         <div class="lsc-ctl"><label>Prices <select id="lscBasis" onchange="lscBasis(this.value)" title="How each player is priced"><option value="win">at the price where you win him … of the time</option><option value="cap">at a % of his Cap</option><option value="ya">at a % of his Y! Avg$ (never below the room's low price)</option></select>
           <input type="range" id="lscLvl" min="20" max="90" step="5" value="60" oninput="lscLvl(this.value)"> <b id="lscLvlV">60% chance</b></label>
           <label title="Leave out every player with a 30%+ chance of playing under 70% of his projected games (the injury model: his games last season and his projected games)"><input type="checkbox" id="lscSafe" onchange="lscSafe(this.checked)"> Safe: skip injury risk ≥30%</label>
-          <label>Anchor for B <input type="text" id="lscAnchor" list="lscNames" placeholder="any player, e.g. Luka Doncic" onchange="lscAnchor(this.value)"><datalist id="lscNames"></datalist> at $<input type="number" id="lscAnchorP" min="1" max="200" placeholder="auto" onchange="lscAnchorP(this.value)" title="His price in the plan; empty = price level x his Cap"></label>
+          <label>Your anchor (card B2) <input type="text" id="lscAnchor" list="lscNames" placeholder="any player, e.g. Luka Doncic" onchange="lscAnchor(this.value)"><datalist id="lscNames"></datalist> at $<input type="number" id="lscAnchorP" min="1" max="200" placeholder="auto" onchange="lscAnchorP(this.value)" title="His price in the plan; empty = price level x his Cap"></label>
           <button class="btn primary" onclick="liveScenGen()">Generate</button><button class="chipbtn" onclick="lscClear()">Clear ✕ list</button><span class="lsc-note" id="lscNote"></span></div>
         <div class="lsc-grid" id="lscOut"></div>
       </div>
@@ -1838,13 +1839,16 @@ function liveScenGen(){ const out=document.getElementById('lscOut'); if(!out) re
   const A=lscRun({warm:[C.ros.map(x=>x.q.name)]});
   const inA=new Set(A.ros.map(x=>x.q.name));
   lscNames();
-  let big=null, bigNote='';
+  // two anchors (18 Oct 2026, Daniel: "i also want 2 anchor, one set by the engine (A) and one set by me (B)"):
+  // B is always built around the engine's pick (the best name left outside plan A); B2 around the player Daniel typed.
+  let mine=null, bigNote='';
   if(_lsc.anchor){ const q=pjOf(_lsc.anchor); const st=state.picks[_lsc.anchor];
-    if(!q||isKeeper(_lsc.anchor)||(st&&!st.whatif)) bigNote=`${_lsc.anchor} is ${st&&st.mine?'already yours':st?'gone':'not available'}: B uses the best name left instead.`;
-    else { const c=_lsc.anchorP||lscPrice(q,lvl); if(c>maxB) bigNote=`${_lsc.anchor} at $${c} is above your max bid of $${maxB}: B uses the best name left instead.`; else big={q,c,anchor:true}; } }
-  if(!big) big=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0&&!q.over&&!_lsc.excl.has(q.name)&&!(_lsc.safe&&(lscRisk(q.name)||0)>=30)&&typeof q.cap==='number'&&q.cap>0&&!inA.has(q.name))
+    if(!q||isKeeper(_lsc.anchor)||(st&&!st.whatif)) bigNote=`${_lsc.anchor} is ${st&&st.mine?'already yours':st?'gone':'not available'}: no B2 card.`;
+    else { const c=_lsc.anchorP||lscPrice(q,lvl); if(c>maxB) bigNote=`${_lsc.anchor} at $${c} is above your max bid of $${maxB}: no B2 card.`; else mine={q,c,anchor:true}; } }
+  const big=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0&&!q.over&&!_lsc.excl.has(q.name)&&!(_lsc.safe&&(lscRisk(q.name)||0)>=30)&&typeof q.cap==='number'&&q.cap>0&&!inA.has(q.name))
     .map(q=>({q,c:lscPrice(q,lvl)})).filter(x=>x.c<=maxB&&x.c>=8).sort((a,b)=>(b.q.blend||0)-(a.q.blend||0))[0];
   const B=big?lscRun({force:big.q.name,forcePrice:big.c,warm:[A.ros.map(x=>x.q.name)]}):null;
+  const B2=mine?lscRun({force:mine.q.name,forcePrice:mine.c,warm:[A.ros.map(x=>x.q.name)]}):null;
   if(bigNote){ const n=document.getElementById('lscNote'); if(n) n.textContent=bigNote; }
   // D..G (18 Oct 2026, Daniel: "give me new spots D, E, etc."): two stars, safe (or risky when Safe is on), hot room, cheap room
   const warmA=[A.ros.map(x=>x.q.name)];
@@ -1854,27 +1858,41 @@ function liveScenGen(){ const out=document.getElementById('lscOut'); if(!out) re
     const first=big&&big.anchor?big:cands[0]; const second=first?cands.find(x=>x.q.name!==first.q.name&&first.c+x.c<=ms.left-(ms.need-2)):null;
     if(first&&second){ two=[first,second]; D=lscRun({forces:[{name:first.q.name,price:first.c},{name:second.q.name,price:second.c}],warm:warmA}); } }
   const E=lscRun({safe:!_lsc.safe,warm:warmA});
+  // H · With gems (18 Oct 2026, Daniel: "how to make sure gems and sleepers are included in here"): the plan forced to
+  // include up to three gems - Sleepers first (by rank), then the biggest Leap names - each at his plan price; the rest
+  // is planned around them. Every card also marks gem rows and counts them, so he sees what the free plan already took.
+  const gemPool=lscGems().filter(g=>!state.picks[g.name]&&!isKeeper(g.name)&&!_lsc.excl.has(g.name)&&!(_lsc.safe&&(lscRisk(g.name)||0)>=30));
+  let hForces=[], hSpend=0; for(const g of gemPool){ if(hForces.length>=Math.min(3,ms.need)) break; const q=pjOf(g.name); if(!q) continue; const c=lscPrice(q,lvl); if(hSpend+c>ms.left-(ms.need-hForces.length-1)) continue; hForces.push({name:q.name,price:c}); hSpend+=c; }
+  const H=hForces.length?lscRun({forces:hForces,warm:warmA}):null;
   const W=_lsc.basis==='win', F=W?lscRun({win:Math.min(95,_lsc.win+15),warm:warmA}):lscRun({level:Math.min(1.3,lvl+0.15),warm:warmA}), G=W?lscRun({win:Math.max(20,_lsc.win-15),warm:warmA}):lscRun({level:Math.max(0.6,lvl-0.15),warm:warmA});
-  _lsc.res={key:draftKeyNW(),A,B,C,D,E,F,G,big,two}; _lsc.auto=true; lscRender(); return;
+  _lsc.res={key:draftKeyNW(),A,B,B2,C,D,E,F,G,H,hForces,big,mine,two}; _lsc.auto=true; lscRender(); return;
 }
+// gems = the Gems & sleepers tab's two lists: Sleepers (sleeperMap, ranked) then Leap (leapList, step up >= 5)
+function lscGems(){ const out=[]; for(const [n,v] of sleeperMap()) out.push({name:n,kind:'sleeper',rank:v.rank}); const seen=new Set(out.map(x=>x.name));
+  for(const x of leapList()){ if(x.up>=5&&!seen.has(x.q.name)) out.push({name:x.q.name,kind:'leap',up:x.up}); } return out; }
+function lscGemTag(n){ const g=lscGems().find(x=>x.name===n); return g?` <span class="lsc-gem" title="${g.kind==='sleeper'?'Sleeper #'+g.rank+' on the Gems & sleepers tab':'Leap: projected step up +'+g.up.toFixed(1)+' on the Gems & sleepers tab'}">${g.kind==='sleeper'?'gem':'leap'}</span>`:''; }
 function lscRender(){ const out=document.getElementById('lscOut'); const R=_lsc.res; if(!out||!R||!R.A) return; const ms=myStatus();
   const mine=Object.entries(state.picks).filter(([n,s])=>s.status==='won'&&s.mine&&!s.whatif).map(([n,s])=>({q:pjOf(n),cost:+s.price||0,mine:true})).filter(x=>x.q);
   const card=(title,sub,E)=>{ if(!E) return `<div class="lsc-card"><h4>${title}</h4><div class="contnote">No affordable big name left (none at $8+ within your max bid).</div></div>`;
     const all=mine.concat(E.ros); const roto=nbRoto(all.map(x=>x.q)); const leftAfter=ms.left-E.spent; const cats=nbExpCats(nbCats(all.reduce((acc,x)=>{const w=nbVec(x.q); return acc.map((y,i)=>y+w[i]);},new Array(12).fill(0))));
     const rk=n=>{ const r=lscRisk(n); return r==null?'<td class="risk">—</td>':`<td class="risk ${r>=30?'hi':''}" title="chance of playing under 70% of his projected games">${r}%</td>`; };
     const rows=mine.map(x=>`<tr class="mine"><td>${x.q.name}</td><td class="p">${x.q.ypos||''}</td><td class="n">$${x.cost}</td><td class="p">yours</td>${rk(x.q.name)}<td></td></tr>`).join('')
-      +E.ros.slice().sort((a,b)=>b.cost-a.cost).map(x=>{ const esc=x.q.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return `<tr><td>${plink(x.q.name)}${x.forced?' <span class="p">(anchor)</span>':''}</td><td class="p">${x.q.ypos||''}</td><td class="n"><b>$${x.cost}</b></td><td class="p">cap $${x.cap}${(()=>{ const w=winProb(x.q.name,x.cost); return w?` · win ${w.p}%`:''; })()}</td>${rk(x.q.name)}<td><button class="lsc-x" title="Cross him off: rebuild without him" onclick="lscExcl('${esc}')">✕</button></td></tr>`; }).join('');
+      +E.ros.slice().sort((a,b)=>b.cost-a.cost).map(x=>{ const esc=x.q.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return `<tr><td>${plink(x.q.name)}${lscGemTag(x.q.name)}${x.forced?' <span class="p">(set)</span>':''}</td><td class="p">${x.q.ypos||''}</td><td class="n"><b>$${x.cost}</b></td><td class="p">cap $${x.cap}${(()=>{ const w=winProb(x.q.name,x.cost); return w?` · win ${w.p}%`:''; })()}</td>${rk(x.q.name)}<td><button class="lsc-x" title="Cross him off: rebuild without him" onclick="lscExcl('${esc}')">✕</button></td></tr>`; }).join('');
     const o=lscOdds(E.ros); const odds=o?`<div class="odds">With injuries: 1st <b>${o.p1}%</b> · top 3 <b>${o.p3}%</b> · bottom 5 <b style="color:${o.b5>=15?'var(--danger)':'inherit'}">${o.b5}%</b> · likely #${o.med} · ${o.lost} games lost on average</div>`:'';
     const warn=leftAfter>10?`<div class="money bad">Leaves $${leftAfter} unused: raise the price level, or bid above plan on the names you want.</div>`:`<div class="money">Uses $${E.spent} of your $${ms.left} · $${leftAfter} left · ${E.ros.length} player${E.ros.length>1?'s':''} for ${ms.need} open slot${ms.need>1?'s':''}</div>`;
     const LAB={PTS:'PTS','3PTM':'3PM',REB:'REB',AST:'AST',ST:'STL',BLK:'BLK','FG%':'FG%','FT%':'FT%',TO:'TO'};
-    return `<div class="lsc-card"><h4>${title}</h4><div class="p">${sub}</div><div class="roto">${roto.tot.toFixed(0)} <small>of 144 roto · ≈${E.exp.toFixed(0)} with normal luck</small></div>${odds}${warn}<table>${rows}</table>
+    const gems=E.ros.filter(x=>lscGems().some(g=>g.name===x.q.name)); const gemLine=`<div class="p gems">${gems.length?`${gems.length} gem${gems.length>1?'s':''}: ${gems.map(x=>x.q.name).join(', ')}`:'no gems from the Gems &amp; sleepers tab'}</div>`;
+    return `<div class="lsc-card"><h4>${title}</h4><div class="p">${sub}</div><div class="roto">${roto.tot.toFixed(0)} <small>of 144 roto · ≈${E.exp.toFixed(0)} with normal luck</small></div>${odds}${warn}${gemLine}<table>${rows}</table>
       <div class="lsc-cats">${NB_CATS.map(k=>`${LAB[k]} ${cats[k].toFixed(1)}`).join(' · ')}</div></div>`; };
   const lvl=_lsc.level;
   const twoL=R.two?`${R.two[0].q.name} $${R.two[0].c} + ${R.two[1].q.name} $${R.two[1].c}, the rest planned around them`:'needs two open slots and two $8+ names you can afford together';
-  out.innerHTML=card('A · Best roto',(_lsc.basis==='win'?`every player at the price you win him ${_lsc.win}% of the time${roomIndex().n?` (room running ${roomIndex().f>=1?'+':''}${Math.round((roomIndex().f-1)*100)}%)`:''}`:`every player at ${lvl}% of his ${lscBaseName()}${_lsc.basis==='ya'?' (never below the room\'s low price; Cap when Yahoo has none)':''}`)+(_lsc.safe?' · safe':''),R.A)+card(R.big?`B · Around ${R.big.q.name}${R.big.anchor?' (your anchor)':''}`:'B · Around the best name left',R.big?`${R.big.q.name} at $${R.big.c}, the rest planned around him`:'',R.B)+card('C · Depth',`nobody above $${Math.max(1,Math.round(0.2*ms.left))} (20% of your money left)${_lsc.safe?' · safe':''}`,R.C)
+  out.innerHTML=card('A · Best roto',(_lsc.basis==='win'?`every player at the price you win him ${_lsc.win}% of the time${roomIndex().n?` (room running ${roomIndex().f>=1?'+':''}${Math.round((roomIndex().f-1)*100)}%)`:''}`:`every player at ${lvl}% of his ${lscBaseName()}${_lsc.basis==='ya'?' (never below the room\'s low price; Cap when Yahoo has none)':''}`)+(_lsc.safe?' · safe':''),R.A)+card(R.big?`B · Engine's anchor: ${R.big.q.name}`:'B · Engine\'s anchor',R.big?`${R.big.q.name} at $${R.big.c} (best name left outside A), the rest planned around him`:'no affordable name left outside A',R.B)
+    +(R.mine?card(`B2 · Your anchor: ${R.mine.q.name}`,`${R.mine.q.name} at $${R.mine.c}, the rest planned around him`,R.B2):`<div class="lsc-card"><h4>B2 · Your anchor</h4><div class="contnote">Type a name in "Your anchor" above (and a price, or leave it on auto) to get a plan built around him.</div></div>`)
+    +card('C · Depth',`nobody above $${Math.max(1,Math.round(0.2*ms.left))} (20% of your money left)${_lsc.safe?' · safe':''}`,R.C)
     +(R.D?card('D · Two stars',twoL,R.D):`<div class="lsc-card"><h4>D · Two stars</h4><div class="contnote">${twoL}</div></div>`)
     +card(_lsc.safe?'E · Risky allowed':'E · Safe',_lsc.safe?'the same plan with the injury-risk players allowed back in':'injury risk under 30% only',R.E)
-    +card('F · Hot room',_lsc.basis==='win'?`prices for a ${Math.min(95,_lsc.win+15)}% chance to win (the room overpays)`:`every price at ${Math.min(130,lvl+15)}% of ${lscBaseName()} (the room overpays)`,R.F)+card('G · Cheap room',_lsc.basis==='win'?`prices for a ${Math.max(20,_lsc.win-15)}% chance to win (bargains)`:`every price at ${Math.max(60,lvl-15)}% of ${lscBaseName()} (bargains)`,R.G);
+    +card('F · Hot room',_lsc.basis==='win'?`prices for a ${Math.min(95,_lsc.win+15)}% chance to win (the room overpays)`:`every price at ${Math.min(130,lvl+15)}% of ${lscBaseName()} (the room overpays)`,R.F)+card('G · Cheap room',_lsc.basis==='win'?`prices for a ${Math.max(20,_lsc.win-15)}% chance to win (bargains)`:`every price at ${Math.max(60,lvl-15)}% of ${lscBaseName()} (bargains)`,R.G)
+    +(R.H?card('H · With gems',`${R.hForces.map(f=>`${f.name} $${f.price}`).join(', ')} forced in (top names from the Gems &amp; sleepers tab), the rest planned around them`,R.H):`<div class="lsc-card"><h4>H · With gems</h4><div class="contnote">No gem from the Gems &amp; sleepers tab is still available and affordable.</div></div>`);
   const sub=document.getElementById('lscSub'); if(sub) sub.textContent=`$${ms.left} left · ${ms.need} open slot${ms.need>1?'s':''}${_lsc.safe?' · safe on':''}${_lsc.anchor?` · anchor ${_lsc.anchor}`:''}${_lsc.excl.size?` · ${_lsc.excl.size} crossed off`:''}${R.stale?' · changed since Generate':''}`;
   const note=document.getElementById('lscNote'); if(note&&R.stale) note.textContent='Changed since the last Generate - press Generate.'; }
 function renderLiveScen(){ const bs=document.getElementById('lscBasis'); if(bs&&bs.value!==_lsc.basis) bs.value=_lsc.basis; lscSlider();
