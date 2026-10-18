@@ -67,7 +67,10 @@ button{font-family:inherit;cursor:pointer}
 .stat .v.ok{color:var(--good)}
 .budgetbar{flex:1 1 100px;min-width:80px;max-width:260px;height:5px;border-radius:3px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line)}
 .budgetbar > i{display:block;height:100%;background:var(--accent);transition:width .3s ease}
-.resetbtn{margin-left:auto;border:1px solid var(--line);background:transparent;color:var(--text-dim);padding:3px 9px;border-radius:5px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
+.calc{display:flex;align-items:center;gap:7px;margin-left:auto;font-size:10.5px;color:var(--text-dim);white-space:nowrap;transition:opacity .4s} .calc.idle{opacity:.35}
+.calc-bar{width:90px;height:6px;border-radius:3px;background:var(--line);overflow:hidden} .calc-bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s} .calc b{min-width:34px;text-align:right;color:var(--text)}
+.resetbtn.refresh{margin-left:8px;color:var(--accent);border-color:var(--accent)}
+.resetbtn{margin-left:8px;border:1px solid var(--line);background:transparent;color:var(--text-dim);padding:3px 9px;border-radius:5px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
 .resetbtn:hover{border-color:var(--danger);color:var(--danger)}
 
 /* ---- modal (replaces native prompt/confirm, which get blocked in sandboxed viewers) ---- */
@@ -823,6 +826,7 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .lsc-ctl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:10px;font-size:13px;color:var(--text-dim)} .lsc-ctl label{display:flex;align-items:center;gap:6px} .lsc-ctl input[type=text]{width:200px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text)} .lsc-ctl input[type=number]{width:58px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text)} .lsc-ctl input[type=checkbox]{accent-color:var(--accent)}
 .lsc-card td.risk{text-align:right;font-size:11px;color:var(--text-faint);white-space:nowrap} .lsc-card td.risk.hi{color:var(--danger);font-weight:700} .lsc-card .odds{font-size:12px;color:var(--text-dim)} .lsc-card .odds b{color:var(--text)} .lsc-ctl input[type=range]{width:180px;accent-color:var(--accent)} .lsc-ctl b{color:var(--text);min-width:110px}
 .lsc-note{font-size:12px;color:var(--gold)}
+#lscOut.stale{opacity:.45;filter:grayscale(.4)} #lscOut{transition:opacity .3s}
 .lsc-grid{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x proximity} .lsc-grid>.lsc-card{flex:0 0 300px;scroll-snap-align:start}
 .lsc-card{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--text-dim)}
 .lsc-card h4{margin:0;font-size:14px;color:var(--text)} .lsc-card .roto{font-size:22px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums} .lsc-card .roto small{font-size:11px;font-weight:400;color:var(--text-faint);margin-left:6px}
@@ -960,6 +964,8 @@ details.method[open] summary:after{content:'\2212'}
   <div class="stat" title="Next pick number (picks you have logged + 1) and the stage of the draft"><span class="k">Pick · <span id="stPhase">opening</span></span><span class="v mono" id="stPick">1</span></div>
   <div class="stat"><span class="k">Anchors left</span><span class="v mono" id="stAnch">—</span></div>
   <div class="stat"><span class="k">Rest / slot</span><span class="v mono" id="stPlan">—</span></div>
+  <div class="calc idle" id="calcBox" title="After every pick the engine rebuilds the live plans, then Worth to you (top rows) and Roto +/- in the background. It pauses while you type or click."><span id="calcL">Up to date</span><span class="calc-bar"><i id="calcI"></i></span><b class="mono" id="calcP">100%</b></div>
+  <button class="resetbtn refresh" id="refreshBtn" onclick="recalcAll()" title="Throw away the cached numbers for this draft state and compute everything again: live plans, Worth to you, Roto +/-">↻ Refresh</button>
   <button class="resetbtn" id="resetBtn">Reset draft</button>
   <span class="savestate" id="saveState" title="Where your logged picks are kept">saved in this browser</span>
 </div>
@@ -1832,8 +1838,22 @@ function lscRun(opts){ const sv=window.__nbIter, ss=window.__nbSeed, sw=window._
   try{ E=nbEngine({lite:true}); } finally { window.__nbLive=null; window.__nbIter=sv; window.__nbSeed=ss; window.__nbWarm=sw; for(const f of forces){ if(had[f.name]) state.picks[f.name]=had[f.name]; else delete state.picks[f.name]; } }
   const forced=forces.map(f=>({q:pjOf(f.name),cost:f.price,cap:(byName[f.name]?policyFor(byName[f.name]).cap:pjOf(f.name).cap)||0,v:nbVec(pjOf(f.name)),forced:true})); const fp=forces.reduce((a,f)=>a+f.price,0);
   return {...E, ros:forced.concat(E.ros), spent:E.spent+fp, left:E.left+fp}; }
+let _lscGen=0, _lscBusy=false;   // _lscBusy: the background queues (Worth to you, Roto +/-) wait while the plans run
+// Yield between plan steps through a MessageChannel, not setTimeout: a timer tick costs 75-90 ms on this page (timer
+// throttling), a message task well under 1 ms, and the browser still gets a paint opportunity between tasks. Each paint
+// of this page costs about 150 ms (style + layout of the whole document), so the chain yields only twice: after
+// C+A and after B+B2+D. Nine yields made the plans 2 s instead of 0.5 s.
+const _lscYield=(()=>{ const mc=new MessageChannel(); let cb=null; mc.port1.onmessage=()=>{ const f=cb; cb=null; if(f) f(); }; return f=>{ cb=f; mc.port2.postMessage(0); }; })();
+// The nine plans run one per timer tick (18 Oct 2026) so the page can paint the progress bar between them; a newer call
+// cancels an older chain through _lscGen. Cards stay on screen, greyed as stale, until the new set is ready.
 function liveScenGen(){ const out=document.getElementById('lscOut'); if(!out) return; const ms=myStatus(); const note=document.getElementById('lscNote'); if(note) note.textContent='';
-  if(ms.need<=0){ out.innerHTML='<div class="contnote">Roster full.</div>'; _lsc.res={key:draftKeyNW()}; return; }
+  if(ms.need<=0){ out.innerHTML='<div class="contnote">Roster full.</div>'; _lsc.res={key:draftKeyNW()}; calcSet('lsc',0,0); return; }
+  const gen=++_lscGen, steps=[]; let C,A,inA,mine=null,bigNote='',big,B,B2,warmA,D=null,two=null,E,H,F,G;
+  const step=f=>steps.push(f);
+  const finish=()=>{ _lsc.res={key:draftKeyNW(),A,B,B2,C,D,E,F,G,H,hForces,big,mine,two}; _lsc.auto=true; _lscBusy=false; lscRender(); calcSet('lsc',steps.length,steps.length); worthPump(); rpmPump(); };
+  const run=i=>{ if(gen!==_lscGen) return; if(i>=steps.length){ finish(); return; } try{ steps[i](); }catch(e){ _lscBusy=false; throw e; } if(i===1||i===4){ calcSet('lsc',i+1,steps.length+1); _lscYield(()=>run(i+1)); } else run(i+1); };
+  _lscBusy=true;
+  out.classList.add('stale');
   const lvl=_lsc.level/100, maxB=ms.left-(ms.need-1);
   // C first, then A warm-started from C's roster, so "best roto" can never score below the depth roster (the search is a
   // heuristic; without the warm start C beat A 121-118 in a test)
@@ -1841,41 +1861,39 @@ function liveScenGen(){ const out=document.getElementById('lscOut'); if(!out) re
   const gemPool=lscGems().filter(g=>!state.picks[g.name]&&!isKeeper(g.name)&&!_lsc.excl.has(g.name)&&!(_lsc.safe&&(lscRisk(g.name)||0)>=30));
   let hForces=[], hSpend=0; for(const g of gemPool){ if(hForces.length>=Math.min(3,ms.need)) break; const q=pjOf(g.name); if(!q) continue; const c=lscPrice(q,lvl); if(hSpend+c>ms.left-(ms.need-hForces.length-1)) continue; hForces.push({name:q.name,price:c}); hSpend+=c; }
   window.__lscGemForces=hForces;
-  const C=lscRun({maxCost:Math.max(1,Math.round(0.2*ms.left))});
-  const A=lscRun({warm:[C.ros.map(x=>x.q.name)]});
-  const inA=new Set(A.ros.map(x=>x.q.name));
+  step(()=>{ C=lscRun({maxCost:Math.max(1,Math.round(0.2*ms.left))}); });
+  step(()=>{ A=lscRun({warm:[C.ros.map(x=>x.q.name)]}); inA=new Set(A.ros.map(x=>x.q.name)); warmA=[A.ros.map(x=>x.q.name)]; });
   lscNames();
   // two anchors (18 Oct 2026, Daniel: "i also want 2 anchor, one set by the engine (A) and one set by me (B)"):
   // B is always built around the engine's pick (the best name left outside plan A); B2 around the player Daniel typed.
-  let mine=null, bigNote='';
   if(_lsc.anchor){ const q=pjOf(_lsc.anchor); const st=state.picks[_lsc.anchor];
     if(!q||isKeeper(_lsc.anchor)||(st&&!st.whatif)) bigNote=`${_lsc.anchor} is ${st&&st.mine?'already yours':st?'gone':'not available'}: no B2 card.`;
     else { const c=_lsc.anchorP||lscPrice(q,lvl); if(c>maxB) bigNote=`${_lsc.anchor} at $${c} is above your max bid of $${maxB}: no B2 card.`; else mine={q,c,anchor:true}; } }
-  const big=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0&&!q.over&&!_lsc.excl.has(q.name)&&!(_lsc.safe&&(lscRisk(q.name)||0)>=30)&&typeof q.cap==='number'&&q.cap>0&&!inA.has(q.name))
+  step(()=>{ big=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0&&!q.over&&!_lsc.excl.has(q.name)&&!(_lsc.safe&&(lscRisk(q.name)||0)>=30)&&typeof q.cap==='number'&&q.cap>0&&!inA.has(q.name))
     .map(q=>({q,c:lscPrice(q,lvl)})).filter(x=>x.c<=maxB&&x.c>=8).sort((a,b)=>(b.q.blend||0)-(a.q.blend||0))[0];
-  const B=big?lscRun({force:big.q.name,forcePrice:big.c,warm:[A.ros.map(x=>x.q.name)]}):null;
-  const B2=mine?lscRun({force:mine.q.name,forcePrice:mine.c,warm:[A.ros.map(x=>x.q.name)]}):null;
+    B=big?lscRun({force:big.q.name,forcePrice:big.c,warm:warmA}):null; });
+  step(()=>{ B2=mine?lscRun({force:mine.q.name,forcePrice:mine.c,warm:warmA}):null; });
   if(bigNote){ const n=document.getElementById('lscNote'); if(n) n.textContent=bigNote; }
   // D..G (18 Oct 2026, Daniel: "give me new spots D, E, etc."): two stars, safe (or risky when Safe is on), hot room, cheap room
-  const warmA=[A.ros.map(x=>x.q.name)];
-  let D=null, two=null;
-  if(ms.need>=2){ const cands=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0&&!q.over&&!_lsc.excl.has(q.name)&&!(_lsc.safe&&(lscRisk(q.name)||0)>=30)&&typeof q.cap==='number'&&q.cap>0)
+  step(()=>{ if(ms.need>=2){ const cands=PJ.filter(q=>!state.picks[q.name]&&q.cap!=='KEEPER'&&!isKeeper(q.name)&&(q.g||0)>0&&!q.over&&!_lsc.excl.has(q.name)&&!(_lsc.safe&&(lscRisk(q.name)||0)>=30)&&typeof q.cap==='number'&&q.cap>0)
       .map(q=>({q,c:lscPrice(q,lvl)})).filter(x=>x.c>=8&&x.c<=maxB).sort((a,b)=>(b.q.blend||0)-(a.q.blend||0));
     const first=big&&big.anchor?big:cands[0]; const second=first?cands.find(x=>x.q.name!==first.q.name&&first.c+x.c<=ms.left-(ms.need-2)):null;
-    if(first&&second){ two=[first,second]; D=lscRun({forces:[{name:first.q.name,price:first.c},{name:second.q.name,price:second.c}],warm:warmA}); } }
-  const E=lscRun({safe:!_lsc.safe,warm:warmA});
+    if(first&&second){ two=[first,second]; D=lscRun({forces:[{name:first.q.name,price:first.c},{name:second.q.name,price:second.c}],warm:warmA}); } } });
+  step(()=>{ E=lscRun({safe:!_lsc.safe,warm:warmA}); });
   // H · With gems (18 Oct 2026, Daniel: "how to make sure gems and sleepers are included in here"): the plan forced to
   // include up to three gems - Sleepers first (by rank), then the biggest Leap names - each at his plan price; the rest
   // is planned around them. Every card also marks gem rows and counts them, so he sees what the free plan already took.
-  const H=_lsc.gems?lscRun({noGems:true,warm:warmA}):(hForces.length?lscRun({forces:hForces,warm:warmA}):null);
-  const W=_lsc.basis==='win', F=W?lscRun({win:Math.min(95,_lsc.win+15),warm:warmA}):lscRun({level:Math.min(1.3,lvl+0.15),warm:warmA}), G=W?lscRun({win:Math.max(20,_lsc.win-15),warm:warmA}):lscRun({level:Math.max(0.6,lvl-0.15),warm:warmA});
-  _lsc.res={key:draftKeyNW(),A,B,B2,C,D,E,F,G,H,hForces,big,mine,two}; _lsc.auto=true; lscRender(); return;
+  step(()=>{ H=_lsc.gems?lscRun({noGems:true,warm:warmA}):(hForces.length?lscRun({forces:hForces,warm:warmA}):null); });
+  const W=_lsc.basis==='win';
+  step(()=>{ F=W?lscRun({win:Math.min(95,_lsc.win+15),warm:warmA}):lscRun({level:Math.min(1.3,lvl+0.15),warm:warmA}); });
+  step(()=>{ G=W?lscRun({win:Math.max(20,_lsc.win-15),warm:warmA}):lscRun({level:Math.max(0.6,lvl-0.15),warm:warmA}); });
+  calcSet('lsc',0,steps.length+1); _lscYield(()=>run(0));
 }
 // gems = the Gems & sleepers tab's two lists: Sleepers (sleeperMap, ranked) then Leap (leapList, step up >= 5)
 function lscGems(){ const out=[]; for(const [n,v] of sleeperMap()) out.push({name:n,kind:'sleeper',rank:v.rank}); const seen=new Set(out.map(x=>x.name));
   for(const x of leapList()){ if(x.up>=5&&!seen.has(x.q.name)) out.push({name:x.q.name,kind:'leap',up:x.up}); } return out; }
 function lscGemTag(n){ const g=lscGems().find(x=>x.name===n); return g?` <span class="lsc-gem" title="${g.kind==='sleeper'?'Sleeper #'+g.rank+' on the Gems & sleepers tab':'Leap: projected step up +'+g.up.toFixed(1)+' on the Gems & sleepers tab'}">${g.kind==='sleeper'?'gem':'leap'}</span>`:''; }
-function lscRender(){ const out=document.getElementById('lscOut'); const R=_lsc.res; if(!out||!R||!R.A) return; const ms=myStatus();
+function lscRender(){ const out=document.getElementById('lscOut'); const R=_lsc.res; if(!out||!R||!R.A) return; const ms=myStatus(); out.classList.toggle('stale',!!R.stale&&R.key!==draftKeyNW());
   const mine=Object.entries(state.picks).filter(([n,s])=>s.status==='won'&&s.mine&&!s.whatif).map(([n,s])=>({q:pjOf(n),cost:+s.price||0,mine:true})).filter(x=>x.q);
   const card=(title,sub,E)=>{ if(!E) return `<div class="lsc-card"><h4>${title}</h4><div class="contnote">No affordable big name left (none at $8+ within your max bid).</div></div>`;
     const all=mine.concat(E.ros); const roto=nbRoto(all.map(x=>x.q)); const leftAfter=ms.left-E.spent; const cats=nbExpCats(nbCats(all.reduce((acc,x)=>{const w=nbVec(x.q); return acc.map((y,i)=>y+w[i]);},new Array(12).fill(0))));
@@ -3012,15 +3030,27 @@ function rpmFill(){ document.querySelectorAll('[data-rpm-n]').forEach(el=>{ el.i
 // slow?" -> "do it, make it efficient"). Each Worth-to-you player blocks the page ~0.4 s and each Roto +/- ~0.3-1 s, so
 // both queues now wait while he types, clicks, scrolls or uses the wheel (and while the tab is hidden), and resume
 // 1.5 s after the last input. The work itself is unchanged; only when it runs.
+// PROGRESS (18 Oct 2026, Daniel during the draft: "after drafting player, engine recalculate everything.. show that it's
+// currently recalculating, show progress bar with %. also offer refresh button"). Three jobs run after a pick: the live
+// plans (9 staged runs), Worth to you (top rows) and Roto +/- (background queues). % = steps done over steps queued.
+const _calc={lsc:[0,0],worth:[0,0],rpm:[0,0],t:null};
+function calcSet(k,done,total){ _calc[k]=[done,total]; calcShow(); }
+function calcShow(){ const b=document.getElementById('calcBox'); if(!b) return; let d=0,t=0; for(const k of ['lsc','worth','rpm']){ d+=_calc[k][0]; t+=_calc[k][1]; }
+  const I=document.getElementById('calcI'), P=document.getElementById('calcP'), L=document.getElementById('calcL'); clearTimeout(_calc.t);
+  if(t>0&&d<t){ const p=Math.round(100*d/t); b.classList.remove('idle'); I.style.width=p+'%'; P.textContent=p+'%';
+    L.textContent=`Recalculating ${_calc.lsc[0]<_calc.lsc[1]?'plans':_calc.worth[0]<_calc.worth[1]?'Worth to you':'Roto +/-'} ${d}/${t}…`; }
+  else { I.style.width='100%'; P.textContent='100%'; L.textContent='Up to date'; _calc.t=setTimeout(()=>b.classList.add('idle'),2000); } }
+function recalcAll(){ const k=draftKeyNW()+'|'; for(const key of [..._worth.keys()]) if(key.startsWith(k)) _worth.delete(key); for(const key of [..._rpm.keys()]) if(key.startsWith(k)) _rpm.delete(key);
+  _worthQ=[]; _rpmQ=[]; _nbMemo={key:null,res:null}; _calc.lsc=[0,0]; _calc.worth=[0,0]; _calc.rpm=[0,0]; renderAll(); if(_lsc.res&&_lsc.res.A) liveScenGen(); else renderLiveScen(); calcShow(); }
 let _uiBusyUntil=0;
 ['keydown','pointerdown','wheel','input','scroll'].forEach(ev=>document.addEventListener(ev,()=>{ _uiBusyUntil=performance.now()+1500; },{capture:true,passive:true}));
-function bgWait(){ const w=_uiBusyUntil-performance.now(); return document.hidden?1000:(w>0?w+50:0); }
-let _rpmQ=[], _rpmBusy=false;
-function rpmQueue(pairs){ const k=draftKeyNW(); _rpmQ=_rpmQ.filter(j=>j.k===k);
-  for(const [n,p] of pairs) if(!rotoPMCached(n,p)&&!_rpmQ.some(j=>j.n===n&&j.p===p)) _rpmQ.push({n,p,k}); rpmPump(); }
+function bgWait(){ if(_lscBusy) return 120; const w=_uiBusyUntil-performance.now(); return document.hidden?1000:(w>0?w+50:0); }
+let _rpmQ=[], _rpmBusy=false, _rpmDone=0, _rpmKey=null;
+function rpmQueue(pairs){ const k=draftKeyNW(); _rpmQ=_rpmQ.filter(j=>j.k===k); if(k!==_rpmKey){ _rpmKey=k; _rpmDone=0; }
+  for(const [n,p] of pairs) if(!rotoPMCached(n,p)&&!_rpmQ.some(j=>j.n===n&&j.p===p)) _rpmQ.push({n,p,k}); calcSet('rpm',_rpmDone,_rpmDone+_rpmQ.length); rpmPump(); }
 function rpmPump(){ if(_rpmBusy||!_rpmQ.length) return; _rpmBusy=true;
   const go=()=>{ const w=bgWait(); if(w>0){ setTimeout(go,w); return; } const j=_rpmQ.shift(); if(!j){ _rpmBusy=false; return; }
-    try{ if(j.k===draftKeyNW()) rotoPM(j.n,j.p); rpmFill(); } finally { _rpmBusy=false; rpmPump(); } };
+    try{ if(j.k===draftKeyNW()) rotoPM(j.n,j.p); rpmFill(); } finally { _rpmBusy=false; _rpmDone++; calcSet('rpm',_rpmDone,_rpmDone+_rpmQ.length); rpmPump(); } };
   setTimeout(go,15); }
 function worthTo(name){ const k=draftKeyNW()+'|'+name; if(_worth.has(k)) return _worth.get(k);
   const ms=myStatus(); if(ms.need<=0||state.picks[name]) return null; const maxB=ms.left-(ms.need-1); if(maxB<1) return null;
@@ -3033,9 +3063,10 @@ function worthTo(name){ const k=draftKeyNW()+'|'+name; if(_worth.has(k)) return 
 function worthCached(name){ return _worth.get(draftKeyNW()+'|'+name)||null; }
 function worthPump(){ if(_worthBusy||!_worthQ.length) return; _worthBusy=true;
   const go=()=>{ const w=bgWait(); if(w>0){ setTimeout(go,w); return; } const n=_worthQ.shift(); if(!n){ _worthBusy=false; return; }
-    try{ const v=worthTo(n); document.querySelectorAll(`td[data-be="${CSS.escape(n)}"]`).forEach(td=>{ td.outerHTML=beCell(n,v); }); } finally { _worthBusy=false; worthPump(); } };
+    try{ const v=worthTo(n); document.querySelectorAll(`td[data-be="${CSS.escape(n)}"]`).forEach(td=>{ td.outerHTML=beCell(n,v); }); } finally { _worthBusy=false; _worthDone++; calcSet('worth',_worthDone,_worthDone+_worthQ.length); worthPump(); } };
   setTimeout(go,15); }
-function worthQueue(names){ worthQueue._k=draftKeyNW(); _worthQ=[]; const seen=new Set(); for(const n of names) if(!seen.has(n)&&!worthCached(n)){ seen.add(n); _worthQ.push(n); } worthPump(); }
+let _worthDone=0;
+function worthQueue(names){ if(worthQueue._k!==draftKeyNW()) _worthDone=0; worthQueue._k=draftKeyNW(); _worthQ=[]; const seen=new Set(); for(const n of names) if(!seen.has(n)&&!worthCached(n)){ seen.add(n); _worthQ.push(n); } calcSet('worth',_worthDone,_worthDone+_worthQ.length); worthPump(); }
 function beCell(n,w){ const r=((_nbMemo.res||{}).rd||{})[n]; const usual=r?r.c:null; const esc=String(n).replace(/"/g,'&quot;');
   if(!w) return _worthTop.has(n)?`<td class="rdc rdbad" data-be="${esc}" data-tip="Still computing (about half a second per player, top of the table first; it waits while you type or click).">…</td>`
     :`<td class="rdc rdbad" data-be="${esc}" data-tip="Computed for the top ${WORTH_ROWS} rows of this list and your plan players. Open his call (click the name) to compute it for him, or sort the table so he is near the top.">—</td>`;
