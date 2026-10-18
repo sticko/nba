@@ -830,6 +830,9 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .lsc-card table{width:100%;border-collapse:collapse} .lsc-card td{padding:3px 4px;border-bottom:1px solid var(--line);vertical-align:middle} .lsc-card td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap} .lsc-card td.p{color:var(--text-faint);font-size:11px} .lsc-card tr.mine td{color:var(--text-faint);font-style:italic}
 .lsc-x{border:1px solid var(--line);background:none;color:var(--text-faint);border-radius:5px;cursor:pointer;font-size:11px;padding:0 5px;line-height:16px} .lsc-x:hover{color:var(--danger);border-color:var(--danger)}
 .lsc-cats{font-size:11px;color:var(--text-faint);line-height:1.5}
+.slp-t{width:100%;border-collapse:collapse;font-size:12.5px} .slp-t th{text-align:left;font-weight:600;color:var(--text-faint);font-size:11px;padding:4px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.slp-t td{padding:5px 8px;border-bottom:1px solid var(--line);color:var(--text-dim);vertical-align:top} .slp-t td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap} .slp-t td b{color:var(--text)} .slp-t tr.taken td{opacity:.5}
+.slp-t .ok{color:var(--good);font-weight:700} .slp-t .warn{color:var(--gold);font-weight:700} .slp-t .bad{color:var(--danger);font-weight:700} .slp-t .risk.hi{color:var(--danger);font-weight:700}
 .mgr-sumn{font-size:11.5px;color:var(--text-faint);margin-top:6px}
 .mgr-chs{display:flex;flex-wrap:wrap;gap:4px}
 .mgr-ch{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;background:var(--surface)} .mgr-ch b{color:var(--text)}
@@ -963,7 +966,7 @@ details.method[open] summary:after{content:'\2212'}
 <div class="tabbar">
   <div class="tabs">
     <button class="tab on" data-tab="proj" onclick="showTab('proj')">Players</button>
-    <button class="tab" data-tab="live" onclick="showTab('live')">Gems &amp; plan</button>
+    <button class="tab" data-tab="live" onclick="showTab('live')">Gems &amp; sleepers</button>
     <button class="tab" data-tab="card" onclick="showTab('card')">Card</button>
     <button class="tab" data-tab="cheap3" onclick="showTab('cheap3')">$1-3 buys</button>
     <button class="tab" data-tab="team" onclick="showTab('team')">My team</button>
@@ -986,12 +989,19 @@ details.method[open] summary:after{content:'\2212'}
         <div id="gemTable"></div>
         <div class="contnote">Gems and Good: camp check of 10 Oct (reasons on the $1-3 buys tab and in the instant call). Value: usually $4-10 and worth $6+ more. Bid up to the cap; "usual" is what the room paid in the simulated drafts.</div>
   </div>
-  <div class="cont pace"><h2>Pace</h2><div id="paceBar" class="pacebar ok"></div></div>
-  <div class="cont ladder">
-    <h2>Must-get ladder — what actually moves the roto</h2>
-    <div id="ladderBox"></div>
-    <div class="contnote">From 2,000 simulated drafts of this card: you land ~3 of the 13 primaries, ~5 pivots and ~5 one-dollar fills. Three things decide the season: the anchor, the second-star seat, and how many cheap value hits the room lets you have. The roto shown is <b>projected 2026-27 roto on the 16-team scale</b>: your simulated roster's season (with injury/variance noise) ranked against the 15 rival rosters drafted in the same simulated auction, at their projections — the same basis as the 2026-27 column on the scorecard. It assumes the projections are right and the rivals draft off Yahoo; against the real past standings with no streaming uplift the same drafts average 76.7. Let the cheap targets come up mid-draft rather than nominating them yourself: an early nomination only calls the sleeper hunters to the table. </div>
+  <div class="cont gemwatch">
+    <h2>Sleepers — the 10 the room does not see <span class="n" id="slpCount"></span></h2>
+    <div class="projctl"><label class="chip"><input type="checkbox" id="slpTaken" onchange="renderSleepers()"> show taken players</label></div>
+    <div id="slpTable"></div>
+    <div class="contnote">The same 10 names that carry the Sleeper tag everywhere: hidden-value players (quiet last season, little press, cheap last year), ranked by our value over what the room usually pays. "Seen" is how obvious he already is to the room (0 = nobody is looking). Camp = the 17 Oct camp check. Risk = chance of playing under 70% of his projected games.</div>
   </div>
+  <div class="cont gemwatch">
+    <h2>Leap — 2nd- and 3rd-year players projected to improve the most <span class="n" id="leapCount"></span></h2>
+    <div class="projctl"><label class="chip"><input type="checkbox" id="leapTaken" onchange="renderLeap()"> show taken players</label></div>
+    <div id="leapTable"></div>
+    <div class="contnote" id="leapNote"></div>
+  </div>
+  <div class="cont pace"><h2>Pace</h2><div id="paceBar" class="pacebar ok"></div></div>
   <div class="cont team compact">
     <h2>My team — by Yahoo slot <span class="n" id="teamCount"></span></h2>
     <div id="teamBox"></div>
@@ -3522,6 +3532,29 @@ function renderEmerge(){
 
 let gemShow='all', gemTaken=false;
 function gemSetShow(v){ gemShow=v; renderGemWatch(); }
+// SLEEPERS + LEAP SECTIONS (18 Oct 2026, Daniel during the draft: "have sleeper tabs in gems & plan, change it to gems &
+// sleepers, a sleeper-only selection, and the sophomore and junior players who leap the most"). The Must-get ladder left
+// this tab the same day ("I don't think we need image 2 anymore").
+function slpStatus(n){ const st=state.picks[n]; if(isKeeper(n)) return 'keeper'; if(!st) return ''; return st.mine?`yours $${st.price}`:'gone'; }
+function slpPre(q){ const p=PRE[pkey(q.name)]; if(!p) return {txt:'<span class="warn">no preseason</span>',cls:'warn'};
+  const mr=(q.min||0)>0?p.m/q.min:0, pr=(q.p||0)>0?p.p/q.p:0; const cls=(mr>=0.75||pr>=0.9)?'ok':(mr<0.6&&pr<0.6?'bad':'warn');
+  return {txt:`<span class="${cls}">${cls==='ok'?'✓':cls==='bad'?'✗':'~'}</span> ${p.g}g ${p.m.toFixed(0)}m ${p.p.toFixed(1)}p ${p.r.toFixed(1)}r ${p.a.toFixed(1)}a`,cls}; }
+function renderSleepers(){ const tb=document.getElementById('slpTable'); if(!tb) return; const showTaken=!!(document.getElementById('slpTaken')||{}).checked;
+  const D=(SCEN.scenarios||[]).find(sc=>sc.id==='hidden'); const seen=new Map((D?D.players:[]).map(x=>[x.name,x.vis]));
+  const rows=[...sleeperMap().values()].filter(x=>showTaken||!slpStatus(x.q.name)).map(x=>{ const q=x.q, st=slpStatus(q.name), cs=c3Note(q.name), r=lscRisk(q.name), pre=slpPre(q);
+    return `<tr class="${st?'taken':''}"><td class="n">${x.rank}</td><td>${plink(q.name)}${sleeperTag(q.name)} <span style="color:var(--text-faint)">${q.tm} · ${q.ypos||''}</span>${st?` <span style="color:var(--text-faint)">· ${st}</span>`:''}</td><td class="n">$${usualPrice(q)}</td><td class="n"><b>$${q.cap}</b></td><td class="n">$${q.blend||0}</td><td class="n">$${q.y||0}</td><td class="n">${seen.has(q.name)?Math.round(seen.get(q.name)):'—'}</td><td>${cs?`<b>${cs.v}</b>`:'—'}</td><td class="n"><span class="risk ${r>=30?'hi':''}">${r!=null?r+'%':'—'}</span></td><td>${pre.txt}</td></tr>`; }).join('');
+  tb.innerHTML=`<div style="overflow-x:auto"><table class="slp-t"><thead><tr><th>#</th><th>Player</th><th>Usual</th><th>Cap</th><th>Blend $</th><th>Y!$</th><th>Seen</th><th>Camp</th><th>Risk</th><th>Preseason</th></tr></thead><tbody>${rows||'<tr><td colspan="10">All 10 sleepers are taken.</td></tr>'}</tbody></table></div>`;
+  const c=document.getElementById('slpCount'); if(c) c.textContent=`${[...sleeperMap().values()].filter(x=>!slpStatus(x.q.name)).length} of 10 still available`; }
+function leapList(){ const idx=(p,r,a,s,b,t)=>(+p||0)+1.2*(+r||0)+1.5*(+a||0)+3*((+s||0)+(+b||0))+1.5*(+t||0);
+  return PJ.filter(q=>(q.yrs===2||q.yrs===3)&&(q.punt||0)>=6).map(q=>{ const A=(ACTUAL[pkey(q.name)]||{})['25']; if(!A||(A.g||0)<30) return null;
+    const last=idx(A.p,A.r,A.a,A.s,A.b,A.t), now=idx(q.p,q.r,q.a,q.s,q.b,q.tp); return {q,A,last,now,up:now-last}; }).filter(Boolean).sort((a,b)=>b.up-a.up).slice(0,15); }
+function renderLeap(){ const tb=document.getElementById('leapTable'); if(!tb) return; const showTaken=!!(document.getElementById('leapTaken')||{}).checked;
+  const rows=leapList().filter(x=>showTaken||!slpStatus(x.q.name)).map((x,i)=>{ const q=x.q, A=x.A, st=slpStatus(q.name), pre=slpPre(q), r=lscRisk(q.name);
+    return `<tr class="${st?'taken':''}"><td class="n">${i+1}</td><td>${plink(q.name)} <span style="color:var(--text-faint)">${q.tm} · ${q.ypos||''} · ${q.yrs===2?'2nd':'3rd'} year, ${(q.age||0).toFixed(0)}</span>${st?` <span style="color:var(--text-faint)">· ${st}</span>`:''}</td>
+      <td class="n">${A.m.toFixed(0)}m ${A.p.toFixed(1)}p ${A.r.toFixed(1)}r ${A.a.toFixed(1)}a</td><td class="n"><b>${(q.min||0).toFixed(0)}m ${(q.p||0).toFixed(1)}p ${(q.r||0).toFixed(1)}r ${(q.a||0).toFixed(1)}a</b></td><td class="n"><b class="${x.up>=5?'ok':''}">+${x.up.toFixed(1)}</b></td><td class="n">$${q.rep!=null?q.rep:0} → <b>$${q.punt||0}</b></td><td class="n">$${usualPrice(q)} / <b>$${q.cap}</b></td><td>${pre.txt}</td><td class="n"><span class="risk ${r>=30?'hi':''}">${r!=null?r+'%':'—'}</span></td></tr>`; }).join('');
+  tb.innerHTML=`<div style="overflow-x:auto"><table class="slp-t"><thead><tr><th>#</th><th>Player</th><th>2025-26 real</th><th>2026-27 proj</th><th>Step up</th><th>Value: repeat → proj</th><th>Usual / Cap</th><th>Preseason check</th><th>Risk</th></tr></thead><tbody>${rows||'<tr><td colspan="9">Nobody left.</td></tr>'}</tbody></table></div>`;
+  const c=document.getElementById('leapCount'); if(c) c.textContent=`${leapList().filter(x=>!slpStatus(x.q.name)).length} of ${leapList().length} still available`;
+  const n=document.getElementById('leapNote'); if(n) n.innerHTML=`Step up = projected per-game production minus his real 2025-26 line (points + 1.2 rebounds + 1.5 assists + 3 steals/blocks + 1.5 threes); only players with 30+ games last season. <b>Read the jumps with care:</b> in the kit's own backtest (2020-26, 721 young player-seasons) only <b>41%</b> of the projected gains came true; the projected top-10 jumpers gained $6 of the $15 projected on average, 63% went up at all, 15% fell by $5 or more. The preseason check (✓ minutes or points near the projection, ~ unclear, ✗ well below) is the evidence beyond our own projection.`; }
 function renderGemWatch(){
   const tb=document.getElementById('gemTable'); if(!tb) return;
   const by=Object.fromEntries(PJ.map(q=>[fold(q.name),q]));
@@ -3989,7 +4022,7 @@ function renderMyPlayers(){
     :'<div class="contnote" style="margin-top:0">Nobody yet. Press Z in the search box, or paste Yahoo results with your team name.</div>';
 }
 
-function renderAll(){ renderManagers(); renderHistory(); renderSeason(); renderLiveRivals(); renderLiveScen(); renderNotes(); renderNextBest(); renderMyPlayers(); renderCockpit(); renderGemWatch(); renderRosters(); renderCheap3(); renderJumpers(); renderScen(); renderProj(); renderLedger(); renderNeeds(); renderTeam(); renderLadder(); renderEndgame(); renderContingency(); renderClock(); renderScorecard(); renderPlan(); renderOptimizer(); renderVerdict(); }
+function renderAll(){ renderManagers(); renderHistory(); renderSeason(); renderLiveRivals(); renderLiveScen(); renderSleepers(); renderLeap(); renderNotes(); renderNextBest(); renderMyPlayers(); renderCockpit(); renderGemWatch(); renderRosters(); renderCheap3(); renderJumpers(); renderScen(); renderProj(); renderLedger(); renderNeeds(); renderTeam(); renderLadder(); renderEndgame(); renderContingency(); renderClock(); renderScorecard(); renderPlan(); renderOptimizer(); renderVerdict(); }
 
 (function(){ const sel=document.getElementById('projTeam'); if(sel){ [...new Set(PJ.map(p=>p.tm).filter(Boolean))].sort().forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;sel.appendChild(o);}); sel.addEventListener('change',()=>{projLimit=150;renderProj();}); }
   const q=document.getElementById('projQ'); if(q) q.addEventListener('input',()=>{projLimit=150;renderProj();});
