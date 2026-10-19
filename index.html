@@ -4487,7 +4487,10 @@ html.almoc-locked{overflow:hidden}</style>
 <script>(function(){ const H='ae2a3673b367555b28deed8608935abd3a49a3bb43ce0c71fd9ef21a018f0258'; const g=document.getElementById('almocGate');
   // VISITOR COUNTER (19 Oct 2026, Daniel: "make counter to see how many visitors have come"): hits.sh, a free badge
   // service with no account - every page load after a login counts one view; the badge shows today / total.
-  const badge=()=>{ try{ const s=document.getElementById('saveState'); if(!s||document.getElementById('almocHits')) return; const i=new Image(); i.id='almocHits'; i.src='https://hits.sh/sticko.github.io/nba.svg?view=today-total&label=views&color=6c6cff&labelColor=1a2040&t='+Date.now(); i.alt='views'; i.title='Page views after login: today / total (hits.sh, counts every page load)'; i.style.cssText='height:18px;margin-left:10px;vertical-align:middle;border-radius:3px'; s.parentNode.insertBefore(i,s); }catch(e){} };
+  // (19 Oct 2026, Daniel: "put it in the most bottom bar") - a footer bar at the very end of the page, not the top bar
+  const badge=()=>{ try{ if(document.getElementById('almocFoot')) return; const f=document.createElement('div'); f.id='almocFoot'; f.style.cssText='margin-top:30px;padding:12px 16px;border-top:1px solid #2a3350;background:#0b1020;color:#8b93ad;font-size:12px;display:flex;align-items:center;justify-content:center;gap:12px;font-family:IBM Plex Sans,system-ui,sans-serif';
+    const i=new Image(); i.id='almocHits'; i.src='https://hits.sh/sticko.github.io/nba.svg?view=today-total&label=views&color=6c6cff&labelColor=1a2040&t='+Date.now(); i.alt='views'; i.title='Page views after login: today / total (hits.sh, counts every page load)'; i.style.cssText='height:18px;border-radius:3px';
+    const t=document.createElement('span'); t.textContent='ALMOC Command Center · page views today / total'; f.appendChild(t); f.appendChild(i); document.body.appendChild(f); }catch(e){} };
   const ok=()=>{ g.remove(); document.documentElement.classList.remove('almoc-locked'); badge(); };
   try{ if(localStorage.getItem('almoc_gate')===H){ ok(); return; } }catch(e){}
   document.documentElement.classList.add('almoc-locked');
