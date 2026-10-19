@@ -4387,3 +4387,18 @@ renderAll();
 rosterStoreInit();   // saved rosters arrive after the first paint; the panel says "Loading" until then
 draftSyncInit();     // the account copy of the draft (see save()); the page works from this browser until it answers
 </script>
+<!-- almoc-gate -->
+<style>#almocGate{position:fixed;inset:0;z-index:99999;background:#0b1020;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#e6e9f2}
+#almocGate form{background:#131a2e;border:1px solid #2a3350;border-radius:12px;padding:26px 28px;width:min(92vw,340px);display:flex;flex-direction:column;gap:10px}
+#almocGate h1{margin:0 0 6px;font-size:18px;letter-spacing:.04em} #almocGate input{padding:9px 11px;border-radius:7px;border:1px solid #2a3350;background:#0b1020;color:#e6e9f2;font-size:15px}
+#almocGate button{margin-top:6px;padding:10px;border:0;border-radius:7px;background:#6c6cff;color:#fff;font-weight:700;font-size:15px;cursor:pointer} #almocGate .err{color:#ff6b6b;font-size:13px;min-height:16px}
+html.almoc-locked{overflow:hidden}</style>
+<div id="almocGate"><form id="almocGateForm" autocomplete="off"><h1>ALMOC Command Center</h1><input id="almocU" placeholder="user" autocapitalize="off"><input id="almocP" type="password" placeholder="password"><button type="submit">Enter</button><div class="err" id="almocErr"></div></form></div>
+<script>(function(){ const H='ae2a3673b367555b28deed8608935abd3a49a3bb43ce0c71fd9ef21a018f0258'; const g=document.getElementById('almocGate'); const ok=()=>{ g.remove(); document.documentElement.classList.remove('almoc-locked'); };
+  try{ if(localStorage.getItem('almoc_gate')===H){ ok(); return; } }catch(e){}
+  document.documentElement.classList.add('almoc-locked');
+  const sha=async s=>{ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); };
+  document.getElementById('almocGateForm').addEventListener('submit',async e=>{ e.preventDefault(); const u=document.getElementById('almocU').value.trim(), p=document.getElementById('almocP').value; const h=await sha(u+':'+p);
+    if(h===H){ try{ localStorage.setItem('almoc_gate',H); }catch(e){} ok(); } else { document.getElementById('almocErr').textContent='Wrong user or password.'; } });
+  setTimeout(()=>document.getElementById('almocU').focus(),50); })();</script>
+<!-- /almoc-gate -->
