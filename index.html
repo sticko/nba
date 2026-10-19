@@ -4403,7 +4403,7 @@ html.almoc-locked{overflow:hidden}</style>
   setTimeout(()=>document.getElementById('almocU').focus(),50); })();</script>
 <!-- /almoc-gate -->
 <!-- almoc-public -->
-<style>.tab[data-tab="live"],.tabpane[data-pane="live"]{display:none !important}</style>
-<script>(function(){ const hide=["live"]; try{ if(hide.includes(localStorage.getItem('almoc_tab2'))) localStorage.setItem('almoc_tab2','proj'); }catch(e){}
+<style>.tab[data-tab="live"],.tabpane[data-pane="live"],.tab[data-tab="card"],.tabpane[data-pane="card"],.tab[data-tab="cheap3"],.tabpane[data-pane="cheap3"]{display:none !important}</style>
+<script>(function(){ const hide=["live", "card", "cheap3"]; try{ if(hide.includes(localStorage.getItem('almoc_tab2'))) localStorage.setItem('almoc_tab2','proj'); }catch(e){}
   for(const t of hide){ const p=document.querySelector('.tabpane[data-pane="'+t+'"]'); if(p&&!p.hidden&&typeof showTab==='function') showTab('proj'); } })();</script>
 <!-- /almoc-public -->
