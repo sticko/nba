@@ -4402,3 +4402,8 @@ html.almoc-locked{overflow:hidden}</style>
     if(h===H){ try{ localStorage.setItem('almoc_gate',H); }catch(e){} ok(); } else { document.getElementById('almocErr').textContent='Wrong user or password.'; } });
   setTimeout(()=>document.getElementById('almocU').focus(),50); })();</script>
 <!-- /almoc-gate -->
+<!-- almoc-public -->
+<style>.tab[data-tab="live"],.tabpane[data-pane="live"]{display:none !important}</style>
+<script>(function(){ const hide=["live"]; try{ if(hide.includes(localStorage.getItem('almoc_tab2'))) localStorage.setItem('almoc_tab2','proj'); }catch(e){}
+  for(const t of hide){ const p=document.querySelector('.tabpane[data-pane="'+t+'"]'); if(p&&!p.hidden&&typeof showTab==='function') showTab('proj'); } })();</script>
+<!-- /almoc-public -->
