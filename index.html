@@ -4484,7 +4484,7 @@ draftSyncInit();     // the account copy of the draft (see save()); the page wor
 #almocGate button{margin-top:6px;padding:10px;border:0;border-radius:7px;background:#6c6cff;color:#fff;font-weight:700;font-size:15px;cursor:pointer} #almocGate .err{color:#ff6b6b;font-size:13px;min-height:16px}
 html.almoc-locked{overflow:hidden}</style>
 <div id="almocGate"><form id="almocGateForm" autocomplete="off"><h1>ALMOC Command Center</h1><input id="almocU" placeholder="user" autocapitalize="off"><input id="almocP" type="password" placeholder="password"><button type="submit">Enter</button><div class="err" id="almocErr"></div></form></div>
-<script>(function(){ const H='e8521cd06c41ce67a5129154d261ac6111aa8095a2c6067f6f0c0dbad56d0208'; const g=document.getElementById('almocGate');
+<script>(function(){ const HS=["e8521cd06c41ce67a5129154d261ac6111aa8095a2c6067f6f0c0dbad56d0208", "c023ecbe48bae372bbe8f4613d550f9aa57972de6d55dbf8c4a741df6c27c69e"]; const H=HS[0]; const g=document.getElementById('almocGate');
   // VISITOR COUNTER (19 Oct 2026, Daniel: "make counter to see how many visitors have come"): hits.sh, a free badge
   // service with no account - every page load after a login counts one view; the badge shows today / total.
   // (19 Oct 2026, Daniel: "put it in the most bottom bar") - a footer bar at the very end of the page, not the top bar
@@ -4492,11 +4492,11 @@ html.almoc-locked{overflow:hidden}</style>
     const i=new Image(); i.id='almocHits'; i.src='https://hits.sh/sticko.github.io/nba.svg?view=today-total&label=views&color=6c6cff&labelColor=1a2040&t='+Date.now(); i.alt='views'; i.title='Page views after login: today / total (hits.sh, counts every page load)'; i.style.cssText='height:18px;border-radius:3px';
     const t=document.createElement('span'); t.textContent='ALMOC Command Center · page views today / total'; f.appendChild(t); f.appendChild(i); document.body.appendChild(f); }catch(e){} };
   const ok=()=>{ g.remove(); document.documentElement.classList.remove('almoc-locked'); badge(); };
-  try{ if(localStorage.getItem('almoc_gate')===H){ ok(); return; } }catch(e){}
+  try{ if(HS.includes(localStorage.getItem('almoc_gate'))){ ok(); return; } }catch(e){}
   document.documentElement.classList.add('almoc-locked');
   const sha=async s=>{ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); };
-  document.getElementById('almocGateForm').addEventListener('submit',async e=>{ e.preventDefault(); const u=document.getElementById('almocU').value.trim(), p=document.getElementById('almocP').value; const h=await sha(u+':'+p);
-    if(h===H){ try{ localStorage.setItem('almoc_gate',H); }catch(e){} ok(); } else { document.getElementById('almocErr').textContent='Wrong user or password.'; } });
+  document.getElementById('almocGateForm').addEventListener('submit',async e=>{ e.preventDefault(); const u=document.getElementById('almocU').value.trim().replace(/^@/,''), p=document.getElementById('almocP').value; const h=await sha(u+':'+p);
+    if(HS.includes(h)){ try{ localStorage.setItem('almoc_gate',h); }catch(e){} ok(); } else { document.getElementById('almocErr').textContent='Wrong user or password.'; } });
   setTimeout(()=>document.getElementById('almocU').focus(),50); })();</script>
 <!-- /almoc-gate -->
 <!-- almoc-public -->
