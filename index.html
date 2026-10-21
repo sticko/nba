@@ -842,7 +842,7 @@ table.room tr.me td{background:var(--gold-soft)} table.room tr.me td:first-child
 .lsc-cats{font-size:11px;color:var(--text-faint);line-height:1.5}
 .slp-t{width:100%;border-collapse:collapse;font-size:12.5px} .slp-t th{text-align:left;font-weight:600;color:var(--text-faint);font-size:11px;padding:4px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 .slp-t th{text-align:center} .slp-t td{padding:5px 8px;border-bottom:1px solid var(--line);color:var(--text-dim);vertical-align:middle;text-align:center} .slp-t td.n{font-variant-numeric:tabular-nums;white-space:nowrap} .slp-t td b{color:var(--text)} .slp-t tr.taken td{opacity:.5}
-.od-t td{text-align:left;vertical-align:top} .od-t td.n,.od-t th{text-align:center} .od-t .news{font-size:12px;line-height:1.35}
+.od-t tr.dimrow td{opacity:.72} .od-t td{text-align:left;vertical-align:top} .od-t td.n,.od-t th{text-align:center} .od-t .news{font-size:12px;line-height:1.35}
 .d26 h3{margin:22px 0 8px;font-size:15px} .d26 .dim{color:var(--text-faint);font-weight:400;font-size:12px} .d26grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:10px 0} @media (max-width:1100px){.d26grid{grid-template-columns:1fr}}
 .d26charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px;margin:12px 0 4px;max-width:1900px}
 .d26card{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px 10px;display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -1066,7 +1066,10 @@ details.method[open] summary:after{content:'\2212'}
   <!-- the $1-8 bench tab was removed on 12 Oct 2026 (Daniel): Players -> Price $1-8 and Tags -> Bench value show the same players -->
   <section class="tabpane" data-pane="cheap3" hidden>
   <div class="cont">
-    <h2>$1 bodies you can really get <span class="n" id="odCount"></span></h2>
+    <h2>Value just out of reach: might slip <span class="n" id="slipCount"></span></h2>
+    <div class="contnote" id="slipNote"></div>
+    <div class="jumpwrap"><div id="slipTable"></div></div>
+    <h2 style="margin-top:22px">$1 bodies you can really get <span class="n" id="odCount"></span></h2>
     <div class="lsc-ctl"><label>Chance to get him at $1 at least <input type="range" id="odCh" min="20" max="100" step="5" value="60" oninput="odSet('ch',this.value)"> <b id="odChV">60%</b></label>
       <label><input type="checkbox" id="odYoung" checked onchange="odSet('young',this.checked)"> Young only (25 or under, or 3rd year or less)</label>
       <label title="Teams protect the investment: a top-20 pick gets the minutes and the second chances a second-rounder does not"><input type="checkbox" id="odTop" onchange="odSet('top',this.checked)"> Top-20 picks of the last 3 drafts (2024-26)</label>
@@ -3688,7 +3691,25 @@ function odSamePos(a,b){ const A=String(a.ypos||'').split(',').map(x=>x.trim()).
 function odStarters(q){ const d=DEPTH[q.tm]; if(!d||!d.rot) return []; const me=d.rot.find(r=>fold(r[0])===fold(q.name)); const myMin=me?me[1]:(q.min||0);
   return d.rot.filter(r=>fold(r[0])!==fold(q.name)&&r[1]>myMin).map(r=>({name:r[0],min:r[1],q:pjOf(r[0])})).filter(x=>x.q&&odSamePos(x.q,q)).slice(0,2)
     .map(x=>{ const inj=(d.inj||[]).find(t=>fold(t).startsWith(fold(x.name))); return Object.assign(x,{risk:lscRisk(x.name),inj:inj?inj.replace(/^[^—-]*[—-]\s*/,''):''}); }); }
-function renderOneDollar(){ const tb=document.getElementById('odTable'); if(!tb) return;
+// MIGHT SLIP (21 Oct 2026, Daniel: "yes do this as well. don't limit ourself or else we never get cheap / value player").
+// Josh Hart (Blend $12, usual $6, cap $7) went for $4 at pick 130 while Daniel had $10 for 5 slots (max bid $6): the
+// $1-3 list needs usual <= $3, the $1 bodies list needs a high chance at $1, so a $4-8 value player late in the draft sat
+// in no list. This list shows every player whose usual price is from $4 up to a little above the max bid, if his Blend $
+// is at least his usual price, with the price the room is likely to pay late: usual x the late-draft discount (this
+// draft's logged picks after the 60% mark when there are 12+, else the 2026 auction's picks 121-181).
+function slipDiscount(){ const logged=Object.entries(state.picks).filter(([n,st])=>st&&st.price>0&&!st.whatif&&!isKeeper(n)).map(([n,st])=>({q:pjOf(n),p:+st.price,t:st.t||0})).filter(x=>x.q).sort((a,b)=>a.t-b.t);
+  const late=logged.slice(Math.floor(logged.length*0.6)); if(late.length>=12){ const pd=late.reduce((a,x)=>a+x.p,0), u=late.reduce((a,x)=>a+usualPrice(x.q),0); return {f:u?pd/u:1,src:`your last ${late.length} logged picks`}; }
+  const L=(DRAFT26.picks||[]).filter(x=>!x.k&&x.pk>120).map(x=>({p:x.p,q:d26Find(x.n)})).filter(x=>x.q); const pd=L.reduce((a,x)=>a+x.p,0), u=L.reduce((a,x)=>a+usualPrice(x.q),0); return {f:u?pd/u:1,src:`the 2026 auction's picks 121-181 (${L.length} players)`}; }
+function renderSlip(){ const tb=document.getElementById('slipTable'); if(!tb) return; const ms=myStatus(); const live=Object.values(state.picks).some(st=>st&&!st.whatif);
+  const maxB=live&&ms.need>0?Math.max(1,ms.left-(ms.need-1)):6; const top=maxB+Math.max(5,Math.round(maxB*0.6)); const D=slipDiscount();
+  const rows=PJ.filter(q=>!state.picks[q.name]&&!isKeeper(q.name)&&!q.keep&&(q.g||0)>=40&&(q.blend||0)>0).map(q=>({q,u:usualPrice(q)})).filter(x=>x.u>=4&&x.u<=top&&(x.q.blend||0)>=x.u)
+    .map(x=>{ const likely=Math.max(1,Math.round(x.u*D.f)); const w=winProb(x.q.name,maxB); return Object.assign(x,{likely,w:w?w.p:null,gain:(x.q.blend||0)-likely,reach:likely<=maxB}); })
+    .sort((a,b)=>(b.reach-a.reach)||(b.gain-a.gain)).slice(0,30);
+  const note=document.getElementById('slipNote'); if(note) note.innerHTML=`${live?`Your max bid now: <b>$${maxB}</b> ($${ms.left} for ${ms.need} slot${ms.need>1?'s':''}).`:`No draft logged: shown for a <b>$${maxB}</b> max bid, the usual end of a draft.`} The room pays <b>${Math.round(100*D.f)}%</b> of the usual price late (${D.src}), so <b>Likely late</b> = usual × ${D.f.toFixed(2)}. Players with a usual price from $4 to $${top} whose value (Blend $) is at least that price - the ones the $1-3 and $1 lists leave out. <b>In reach</b> = likely late price at or under your max bid: nominate or bid on these. <b>Chance at max bid</b> = how often you win him if you bid your whole max bid.`;
+  const cnt=document.getElementById('slipCount'); if(cnt) cnt.textContent=rows.length?`${rows.filter(r=>r.reach).length} in reach · ${rows.length} shown`:'';
+  tb.innerHTML=`<div style="overflow-x:auto"><table class="slp-t od-t"><thead><tr><th>#</th><th>Player</th><th>Blend $</th><th>Usual</th><th>Likely late</th><th>Gain</th><th>Chance at $${maxB}</th><th>2026-27 proj</th><th>Preseason</th><th>Risk</th><th></th></tr></thead><tbody>${rows.map((x,i)=>{ const q=x.q, r=lscRisk(q.name), pre=slpPre(q);
+    return `<tr class="${x.reach?'':'dimrow'}"><td class="n">${i+1}</td><td>${plink(q.name)}${lscGemTag(q.name)} <span style="color:var(--text-faint)">${q.tm} · ${q.ypos||''}</span></td><td class="n"><b>$${q.blend||0}</b></td><td class="n">$${x.u}</td><td class="n"><b>$${x.likely}</b></td><td class="n ok">+${x.gain}</td><td class="n">${x.w!=null?x.w+'%':'—'}</td><td class="n">${q.g}g ${(q.min||0).toFixed(0)}m ${(q.p||0).toFixed(1)}p ${(q.r||0).toFixed(1)}r ${(q.a||0).toFixed(1)}a ${(q.tp||0).toFixed(1)}3</td><td>${pre.txt}</td><td class="n"><span class="risk ${r>=30?'hi':''}">${r!=null?r+'%':'—'}</span></td><td>${x.reach?'<span class="lsc-gem">in reach</span>':'<span style="color:var(--text-faint)">might slip</span>'}</td></tr>`; }).join('')||'<tr><td colspan="11">Nobody in that price band.</td></tr>'}</tbody></table></div>`; }
+function renderOneDollar(){ renderSlip(); const tb=document.getElementById('odTable'); if(!tb) return;
   const sl=document.getElementById('odCh'); if(sl&&+sl.value!==_od.ch) sl.value=_od.ch; const sv=document.getElementById('odChV'); if(sv) sv.textContent=_od.ch+'%';
   const cy=document.getElementById('odYoung'); if(cy) cy.checked=_od.young; const ct=document.getElementById('odTaken'); if(ct) ct.checked=_od.taken; const cp=document.getElementById('odTop'); if(cp) cp.checked=_od.top; const cr=document.getElementById('odRookie'); if(cr) cr.checked=_od.rookie;
   const young=q=>(q.age||99)<=25||(q.yrs||99)<=3;
